@@ -7,3 +7,6 @@ Final Project for CS32
 4. Use of dictionaries and a database/file system to store and organize expense data
 5. Multiple user support so different people can have their own accounts and expense records
 6. Bill-splitting feature inspired by apps like Splitwise to divide shared expenses between users
+
+4/8/26 - Eliot
+- Added bare bones framework for website with a landing page and two subpages (one for billsplit and one for trackers)

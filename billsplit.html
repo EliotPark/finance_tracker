@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bill Split · CS32 Final Project</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-brand">CS32</div>
+    <ul class="nav-links">
+      <li><a href="tracker.html" class="nav-link">Tracker</a></li>
+      <li><a href="billsplit.html" class="nav-link active">Bill Split</a></li>
+    </ul>
+  </nav>
+
+  <main class="bs-app">
+
+    <div class="bs-header">
+      <p class="bs-eyebrow">CS32 · Final Project</p>
+      <h1 class="bs-title">Bill Split</h1>
+      <p class="bs-subtitle">Add members, log who paid what, and get the minimum transactions to settle up.</p>
+    </div>
+
+    <div class="bs-grid">
+
+      <!-- ── Left: Setup ── -->
+      <div class="bs-col">
+
+        <!-- Members -->
+        <section class="bs-section">
+          <h2 class="bs-section-title">
+            <span class="bs-section-icon">01</span>
+            Members
+          </h2>
+          <div class="bs-input-row">
+            <input id="memberInput" class="bs-input" type="text" placeholder="Enter a name…" />
+            <button class="bs-btn" onclick="addMember()">Add</button>
+          </div>
+          <div id="memberTags" class="bs-tags"></div>
+        </section>
+
+        <!-- Add Expense -->
+        <section class="bs-section">
+          <h2 class="bs-section-title">
+            <span class="bs-section-icon">02</span>
+            Add Expense
+          </h2>
+          <input id="descInput" class="bs-input bs-full" type="text" placeholder="Description (e.g. Dinner, Uber…)" />
+          <div class="bs-input-row bs-mt">
+            <select id="payerSelect" class="bs-input bs-select">
+              <option value="" disabled selected>Who paid?</option>
+            </select>
+            <input id="amountInput" class="bs-input bs-amount" type="number" placeholder="$0.00" min="0.01" step="0.01" />
+          </div>
+          <button class="bs-btn bs-btn-primary bs-full bs-mt" onclick="addExpense()">+ Add Expense</button>
+        </section>
+
+      </div>
+
+      <!-- ── Right: Results ── -->
+      <div class="bs-col">
+
+        <!-- Expense Log -->
+        <section class="bs-section">
+          <h2 class="bs-section-title">
+            <span class="bs-section-icon">03</span>
+            Expenses
+            <span id="expenseCount" class="bs-count">0</span>
+          </h2>
+          <div id="expenseList" class="bs-expense-list">
+            <p class="bs-empty-msg">No expenses yet.</p>
+          </div>
+        </section>
+
+        <!-- Settlement -->
+        <section class="bs-section">
+          <h2 class="bs-section-title">
+            <span class="bs-section-icon">04</span>
+            Settlement
+          </h2>
+          <div id="settlement" class="bs-settlement">
+            <p class="bs-empty-msg">Add members and expenses to see who owes what.</p>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <script>
+    /* ── State ── */
+    const state = {
+      members: [],   // string[]
+      expenses: [],  // { id, description, paidBy, amount }[]
+      nextId: 1,
+    };
+
+    /* ── DOM helpers ── */
+    const $ = id => document.getElementById(id);
+
+    function addMember() {
+      const input = $('memberInput');
+      const name = input.value.trim();
+      if (!name) return flash(input);
+      if (state.members.includes(name)) {
+        flash(input, 'already exists');
+        return;
+      }
+      state.members.push(name);
+      input.value = '';
+      renderMembers();
+      renderPayerSelect();
+      renderSettlement();
+    }
+
+    function removeMember(name) {
+      state.members = state.members.filter(m => m !== name);
+      // Also remove their expenses
+      state.expenses = state.expenses.filter(e => e.paidBy !== name);
+      renderMembers();
+      renderPayerSelect();
+      renderExpenses();
+      renderSettlement();
+    }
+
+    function addExpense() {
+      const desc   = $('descInput').value.trim();
+      const paidBy = $('payerSelect').value;
+      const amount = parseFloat($('amountInput').value);
+
+      if (!desc)           { flash($('descInput'));   return; }
+      if (!paidBy)         { flash($('payerSelect')); return; }
+      if (!amount || amount <= 0) { flash($('amountInput')); return; }
+
+      state.expenses.push({ id: state.nextId++, description: desc, paidBy, amount });
+      $('descInput').value   = '';
+      $('amountInput').value = '';
+      $('payerSelect').value = '';
+      renderExpenses();
+      renderSettlement();
+    }
+
+    function removeExpense(id) {
+      state.expenses = state.expenses.filter(e => e.id !== id);
+      renderExpenses();
+      renderSettlement();
+    }
+
+    /* ── Render ── */
+    function renderMembers() {
+      const container = $('memberTags');
+      if (state.members.length === 0) {
+        container.innerHTML = '<p class="bs-empty-msg">No members yet.</p>';
+        return;
+      }
+      container.innerHTML = state.members.map(m => `
+        <span class="bs-tag">
+          ${escHtml(m)}
+          <button class="bs-tag-remove" onclick="removeMember(${JSON.stringify(m)})" title="Remove">×</button>
+        </span>
+      `).join('');
+    }
+
+    function renderPayerSelect() {
+      const sel = $('payerSelect');
+      sel.innerHTML = '<option value="" disabled selected>Who paid?</option>'
+        + state.members.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
+    }
+
+    function renderExpenses() {
+      const list  = $('expenseList');
+      const count = $('expenseCount');
+      count.textContent = state.expenses.length;
+
+      if (state.expenses.length === 0) {
+        list.innerHTML = '<p class="bs-empty-msg">No expenses yet.</p>';
+        return;
+      }
+      list.innerHTML = state.expenses.map(e => {
+        const share = state.members.length > 0
+          ? (e.amount / state.members.length).toFixed(2)
+          : e.amount.toFixed(2);
+        return `
+          <div class="bs-expense-row">
+            <div class="bs-expense-info">
+              <span class="bs-expense-desc">${escHtml(e.description)}</span>
+              <span class="bs-expense-meta">${escHtml(e.paidBy)} paid · $${e.amount.toFixed(2)} · $${share}/person</span>
+            </div>
+            <button class="bs-row-remove" onclick="removeExpense(${e.id})" title="Remove">×</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderSettlement() {
+      const container = $('settlement');
+      const { balances, transactions } = calculateSettlement();
+
+      if (state.members.length < 2) {
+        container.innerHTML = '<p class="bs-empty-msg">Add at least 2 members.</p>';
+        return;
+      }
+
+      // Balances table
+      const balanceRows = state.members.map(m => {
+        const b = balances[m] ?? 0;
+        const cls = b > 0.005 ? 'bs-pos' : b < -0.005 ? 'bs-neg' : 'bs-zero';
+        const label = b > 0.005
+          ? `gets back $${b.toFixed(2)}`
+          : b < -0.005
+            ? `owes $${(-b).toFixed(2)}`
+            : 'settled up';
+        return `<div class="bs-balance-row">
+          <span class="bs-balance-name">${escHtml(m)}</span>
+          <span class="bs-balance-val ${cls}">${label}</span>
+        </div>`;
+      }).join('');
+
+      // Transactions
+      let txHtml;
+      if (transactions.length === 0) {
+        txHtml = '<p class="bs-settle-done">Everyone is settled up!</p>';
+      } else {
+        txHtml = transactions.map(t =>
+          `<div class="bs-tx">
+            <span class="bs-tx-from">${escHtml(t.from)}</span>
+            <span class="bs-tx-arrow">pays</span>
+            <span class="bs-tx-to">${escHtml(t.to)}</span>
+            <span class="bs-tx-amount">$${t.amount.toFixed(2)}</span>
+          </div>`
+        ).join('');
+      }
+
+      container.innerHTML = `
+        <div class="bs-settle-section">
+          <p class="bs-settle-label">Balances</p>
+          ${balanceRows}
+        </div>
+        <div class="bs-settle-section">
+          <p class="bs-settle-label">Pay these people</p>
+          ${txHtml}
+        </div>
+      `;
+    }
+
+    /* ── Core algorithm ── */
+    function calculateSettlement() {
+      const n = state.members.length;
+      if (n === 0) return { balances: {}, transactions: [] };
+
+      // Net balance per person: + means owed money, - means owes money
+      const balances = {};
+      state.members.forEach(m => (balances[m] = 0));
+
+      for (const expense of state.expenses) {
+        const share = expense.amount / n;
+        balances[expense.paidBy] += expense.amount;
+        state.members.forEach(m => (balances[m] -= share));
+      }
+
+      // Round to cents
+      for (const k of Object.keys(balances)) {
+        balances[k] = Math.round(balances[k] * 100) / 100;
+      }
+
+      // Greedy minimum-transaction settlement
+      const creditors = Object.entries(balances)
+        .filter(([, b]) => b > 0.005)
+        .map(([name, b]) => ({ name, amount: b }))
+        .sort((a, b) => b.amount - a.amount);
+
+      const debtors = Object.entries(balances)
+        .filter(([, b]) => b < -0.005)
+        .map(([name, b]) => ({ name, amount: -b }))
+        .sort((a, b) => b.amount - a.amount);
+
+      const transactions = [];
+      let i = 0, j = 0;
+
+      while (i < creditors.length && j < debtors.length) {
+        const pay = Math.min(creditors[i].amount, debtors[j].amount);
+        transactions.push({
+          from:   debtors[j].name,
+          to:     creditors[i].name,
+          amount: Math.round(pay * 100) / 100,
+        });
+        creditors[i].amount -= pay;
+        debtors[j].amount   -= pay;
+        if (creditors[i].amount < 0.005) i++;
+        if (debtors[j].amount   < 0.005) j++;
+      }
+
+      return { balances, transactions };
+    }
+
+    /* ── Utilities ── */
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function flash(el, _msg) {
+      el.classList.remove('bs-flash');
+      void el.offsetWidth; // reflow
+      el.classList.add('bs-flash');
+      el.addEventListener('animationend', () => el.classList.remove('bs-flash'), { once: true });
+    }
+
+    /* ── Enter key shortcuts ── */
+    $('memberInput').addEventListener('keydown', e => e.key === 'Enter' && addMember());
+    $('amountInput').addEventListener('keydown', e => e.key === 'Enter' && addExpense());
+
+    /* ── Initial render ── */
+    renderMembers();
+    renderExpenses();
+    renderSettlement();
+  </script>
+
+</body>
+</html>
