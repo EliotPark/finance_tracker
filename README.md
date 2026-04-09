@@ -10,3 +10,4 @@ Final Project for CS32
 
 4/8/26 - Eliot
 - Added bare bones framework for website with a landing page and two subpages (one for billsplit and one for trackers)
+- New idea - Auto sort transactions into categories using huge hard coded lists of food spots, clothing stores, etc. If none match, give the user to select given a drop down menu.
