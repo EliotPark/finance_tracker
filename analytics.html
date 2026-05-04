@@ -311,12 +311,12 @@
         `<div class="an-stat"><div class="an-stat-label">${label}</div><div class="an-stat-val">${val}</div></div>`;
 
       el.innerHTML = `
-        ${stat('Total Income',    `<span class="tr-pos">+$${totalIn.toFixed(2)}</span>`)}
-        ${stat('Total Spent',     `<span class="tr-neg">-$${totalSpent.toFixed(2)}</span>`)}
-        ${stat('Balance',         `<span class="${balance>=0?'tr-pos':'tr-neg'}">${balance>=0?'+':'-'}$${Math.abs(balance).toFixed(2)}</span>`)}
-        ${stat('Avg Expense',     `$${avgExpense.toFixed(2)}`)}
-        ${stat('# Transactions',  expenses.length)}
-        ${stat('Top Category',    topCat)}
+        ${stat('Total Income', `<span class="tr-pos">+$${totalIn.toFixed(2)}</span>`)}
+        ${stat('Total Spent', `<span class="tr-neg">-$${totalSpent.toFixed(2)}</span>`)}
+        ${stat('Balance', `<span class="${balance>=0?'tr-pos':'tr-neg'}">${balance>=0?'+':'-'}$${Math.abs(balance).toFixed(2)}</span>`)}
+        ${stat('Avg Expense', `$${avgExpense.toFixed(2)}`)}
+        ${stat('# Transactions', expenses.length)}
+        ${stat('Top Category', topCat)}
       `;
     }
 
@@ -334,7 +334,7 @@
       initPieChart(e.target.value || null);
     });
 
-    // ── Refresh button ─────────────────────────────────────────────────────────
+    //Refresh button!
     document.getElementById('refresh-btn').addEventListener('click', () => {
       state = JSON.parse(localStorage.getItem('bs_state') || '{"users":[],"expenses":[],"transactions":[]}');
       if (!state.transactions) state.transactions = [];
@@ -344,7 +344,7 @@
       initPieChart(pieUser || null);
     });
 
-    // ── Init ───────────────────────────────────────────────────────────────────
+    // ── Init ──
     renderUserSel();
     initLineChart();
   </script>

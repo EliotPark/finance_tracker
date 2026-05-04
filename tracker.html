@@ -28,21 +28,21 @@
           <option value="">— select user —</option>
         </select>
       </div>
-
-      <div class="tr-balance-card" id="tr-balance-card">
+      <div class="tr-balance-card">
         <div class="tr-balance-label">Current Balance</div>
         <div class="tr-balance-val" id="tr-balance">—</div>
         <div class="tr-balance-sub" id="tr-balance-sub"></div>
       </div>
     </div>
 
-    <!-- ── Action buttons (hidden until user selected) ── -->
+    <!-- ── Action buttons ── -->
     <div class="tr-actions hidden" id="tr-actions">
       <button class="bs-btn bs-btn-accent" id="btn-add-expense">+ Expense</button>
-      <button class="bs-btn tr-btn-income" id="btn-add-income">+ Income / Paycheck</button>
+      <button class="bs-btn tr-btn-income"  id="btn-add-income">+ Income / Paycheck</button>
+      <button class="bs-btn tr-btn-recurring" id="btn-add-recurring">↻ Recurring</button>
     </div>
 
-    <!-- ── Transaction list ── -->
+    <!-- ── Transaction history ── -->
     <div class="tr-panel">
       <div class="tr-panel-header">
         <span class="tr-panel-title">Transaction History</span>
@@ -51,6 +51,7 @@
           <span>Description</span>
           <span>Amount</span>
           <span>Balance</span>
+          <span></span>
         </div>
       </div>
       <div id="tr-list">
@@ -58,9 +59,23 @@
       </div>
     </div>
 
+    <!-- ── Future payments ── -->
+    <div class="tr-panel tr-future-panel hidden" id="future-panel">
+      <div class="tr-panel-header tr-future-header">
+        <div>
+          <span class="tr-panel-title">Future Payments</span>
+          <span class="tr-future-sub">Next 6 months · from recurring schedules</span>
+        </div>
+        <div class="tr-future-rules-count" id="future-rules-count"></div>
+      </div>
+      <div id="future-list">
+        <p class="bs-empty" style="padding:1.5rem">No recurring payments set up. Use "↻ Recurring" to add one.</p>
+      </div>
+    </div>
+
   </main>
 
-  <!-- ── Add Transaction Modal ── -->
+  <!-- ── Add / Duplicate Transaction Modal ── -->
   <div class="modal-overlay hidden" id="modal-txn">
     <div class="modal-box">
       <div class="modal-header">
@@ -81,8 +96,7 @@
         </div>
         <div class="bs-field">
           <label class="bs-label">Description</label>
-          <input type="text" id="txn-desc" class="bs-input"
-                 placeholder="e.g. Grocery run" required />
+          <input type="text" id="txn-desc" class="bs-input" placeholder="e.g. Grocery run" required />
         </div>
         <div class="bs-field" id="txn-cat-field">
           <label class="bs-label">Category</label>
@@ -104,13 +118,77 @@
     </div>
   </div>
 
+  <!-- ── Add Recurring Modal ── -->
+  <div class="modal-overlay hidden" id="modal-recurring">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Add Recurring Payment</h3>
+        <button class="bs-x modal-close" data-close="modal-recurring">×</button>
+      </div>
+      <form class="bs-form" id="recurring-form">
+        <div class="bs-field">
+          <label class="bs-label">Description</label>
+          <input type="text" id="rec-desc" class="bs-input" placeholder="e.g. Netflix" required />
+        </div>
+        <div class="bs-field-row">
+          <div class="bs-field">
+            <label class="bs-label">Amount ($)</label>
+            <input type="number" id="rec-amount" class="bs-input" placeholder="0.00"
+                   step="0.01" min="0.01" required />
+          </div>
+          <div class="bs-field">
+            <label class="bs-label">Type</label>
+            <select id="rec-type" class="bs-input bs-select">
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+          </div>
+        </div>
+        <div class="bs-field" id="rec-cat-field">
+          <label class="bs-label">Category</label>
+          <select id="rec-cat" class="bs-input bs-select">
+            <option value="Food">Food</option>
+            <option value="Transport">Transport</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Shopping">Shopping</option>
+            <option value="Bills">Bills</option>
+            <option value="Travel">Travel</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="bs-field-row">
+          <div class="bs-field">
+            <label class="bs-label">Frequency</label>
+            <select id="rec-freq" class="bs-input bs-select">
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Bi-weekly</option>
+              <option value="monthly" selected>Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </div>
+          <div class="bs-field">
+            <label class="bs-label">Start Date</label>
+            <input type="date" id="rec-start" class="bs-input" required />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="bs-btn" data-close="modal-recurring">Cancel</button>
+          <button type="submit" class="bs-btn bs-btn-accent">Add Recurring</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     // ── State ──────────────────────────────────────────────────────────────────
-    let state = JSON.parse(localStorage.getItem('bs_state') || '{"users":[],"expenses":[],"transactions":[]}');
-    if (!state.transactions) state.transactions = [];
+    let state = JSON.parse(localStorage.getItem('bs_state') || '{}');
+    state.users        = state.users        || [];
+    state.expenses     = state.expenses     || [];
+    state.transactions = state.transactions || [];
+    state.recurring    = state.recurring    || [];
 
     let currentUser = null;
-    let addingType  = 'expense';
+    let addingType  = 'expense'; // used by txn modal
 
     function save() { localStorage.setItem('bs_state', JSON.stringify(state)); }
     function todayISO() { return new Date().toISOString().split('T')[0]; }
@@ -119,8 +197,21 @@
         .replace(/&/g,'&amp;').replace(/</g,'&lt;')
         .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
-    function fmtDate(iso) {
-      const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`;
+    function fmtDate(iso) { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; }
+
+    // ── Date arithmetic ────────────────────────────────────────────────────────
+    function addFreq(iso, freq) {
+      const d = new Date(iso + 'T12:00:00');
+      if (freq === 'weekly')   d.setDate(d.getDate() + 7);
+      if (freq === 'biweekly') d.setDate(d.getDate() + 14);
+      if (freq === 'monthly')  d.setMonth(d.getMonth() + 1);
+      if (freq === 'yearly')   d.setFullYear(d.getFullYear() + 1);
+      return d.toISOString().split('T')[0];
+    }
+    function addMonths(iso, n) {
+      const d = new Date(iso + 'T12:00:00');
+      d.setMonth(d.getMonth() + n);
+      return d.toISOString().split('T')[0];
     }
 
     // ── Render user dropdown ───────────────────────────────────────────────────
@@ -134,7 +225,46 @@
       if (cur && state.users.includes(cur)) sel.value = cur;
     }
 
-    // ── Render full tracker view ───────────────────────────────────────────────
+    // ── Compute current real balance ───────────────────────────────────────────
+    function realBalance(user) {
+      return Math.round(
+        state.transactions
+          .filter(t => t.user === user)
+          .reduce((acc,t) => acc + (t.type==='income' ? t.amount : -t.amount), 0)
+        * 100) / 100;
+    }
+
+    // ── Generate future occurrences (next 6 months) ────────────────────────────
+    function generateFuture(user) {
+      const today  = todayISO();
+      const cutoff = addMonths(today, 6);
+      const rules  = state.recurring.filter(r => r.user === user);
+      const out    = [];
+
+      rules.forEach(r => {
+        let date = r.startDate;
+        // Fast-forward past dates already before today
+        while (date < today) date = addFreq(date, r.freq);
+        // Collect all future occurrences up to cutoff
+        while (date <= cutoff) {
+          out.push({ ...r, occDate: date });
+          date = addFreq(date, r.freq);
+        }
+      });
+
+      out.sort((a,b) => a.occDate.localeCompare(b.occDate));
+
+      // Attach projected balance (starts from today's real balance)
+      let proj = realBalance(user);
+      out.forEach(f => {
+        proj += f.type === 'income' ? f.amount : -f.amount;
+        f.projBalance = Math.round(proj * 100) / 100;
+      });
+
+      return out;
+    }
+
+    // ── Render tracker ─────────────────────────────────────────────────────────
     function renderTracker() {
       renderUserSel();
 
@@ -142,9 +272,11 @@
       const balEl     = document.getElementById('tr-balance');
       const balSubEl  = document.getElementById('tr-balance-sub');
       const listEl    = document.getElementById('tr-list');
+      const futPanel  = document.getElementById('future-panel');
 
       if (!currentUser) {
         actionsEl.classList.add('hidden');
+        futPanel.classList.add('hidden');
         balEl.textContent    = '—';
         balEl.className      = 'tr-balance-val';
         balSubEl.textContent = '';
@@ -154,77 +286,129 @@
 
       actionsEl.classList.remove('hidden');
 
-      // All transactions for this user, sorted oldest→newest for running balance calc
+      // Sort oldest→newest for running balance, then reverse for display
       const sorted = state.transactions
         .filter(t => t.user === currentUser)
         .sort((a,b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
 
-      // Running balance per transaction
       let running = 0;
       const withBal = sorted.map(t => {
         running += t.type === 'income' ? t.amount : -t.amount;
         return { ...t, running: Math.round(running * 100) / 100 };
       });
 
-      // Display newest first
-      const display = [...withBal].reverse();
-
-      // Balance summary
-      const income  = sorted.filter(t => t.type==='income').reduce((s,t)=>s+t.amount, 0);
-      const expense = sorted.filter(t => t.type==='expense').reduce((s,t)=>s+t.amount, 0);
+      const income  = sorted.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+      const expense = sorted.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
       const bal     = Math.round((income - expense) * 100) / 100;
 
-      balEl.textContent = (bal >= 0 ? '+' : '-') + '$' + Math.abs(bal).toFixed(2);
-      balEl.className   = 'tr-balance-val ' + (bal >= 0 ? 'tr-pos' : 'tr-neg');
+      balEl.textContent   = (bal >= 0 ? '+' : '-') + '$' + Math.abs(bal).toFixed(2);
+      balEl.className     = 'tr-balance-val ' + (bal >= 0 ? 'tr-pos' : 'tr-neg');
       balSubEl.textContent = `Income $${income.toFixed(2)}  ·  Spent $${expense.toFixed(2)}`;
 
-      if (!display.length) {
+      if (!withBal.length) {
         listEl.innerHTML = '<p class="bs-empty" style="padding:1.5rem">No transactions yet. Add an expense or income above.</p>';
+      } else {
+        listEl.innerHTML = [...withBal].reverse().map(t => `
+          <div class="tr-row">
+            <div class="tr-date">${fmtDate(t.date)}</div>
+            <div class="tr-info">
+              <div class="tr-desc">${h(t.desc)}</div>
+              <div class="tr-cat">${h(t.cat)}</div>
+            </div>
+            <div class="tr-delta ${t.type==='income'?'tr-pos':'tr-neg'}">
+              ${t.type==='income'?'+':'-'}$${t.amount.toFixed(2)}
+            </div>
+            <div class="tr-run">$${t.running.toFixed(2)}</div>
+            <div class="tr-row-btns">
+              <button class="bs-icon-btn" data-action="dupe-txn" data-id="${t.id}" title="Duplicate">⧉</button>
+              <button class="bs-x"        data-action="remove-txn" data-id="${t.id}" title="Delete">×</button>
+            </div>
+          </div>`).join('');
+      }
+
+      renderFuture();
+    }
+
+    // ── Render future payments ─────────────────────────────────────────────────
+    function renderFuture() {
+      const futPanel  = document.getElementById('future-panel');
+      const futList   = document.getElementById('future-list');
+      const rulesEl   = document.getElementById('future-rules-count');
+      const rules     = state.recurring.filter(r => r.user === currentUser);
+
+      futPanel.classList.remove('hidden');
+
+      const ruleCount = rules.length;
+      rulesEl.textContent = ruleCount
+        ? `${ruleCount} active rule${ruleCount > 1 ? 's' : ''}`
+        : '';
+
+      const future = generateFuture(currentUser);
+
+      if (!future.length) {
+        futList.innerHTML = '<p class="bs-empty" style="padding:1.5rem">No recurring payments set up. Use "↻ Recurring" above to add one.</p>';
         return;
       }
 
-      listEl.innerHTML = display.map(t => `
-        <div class="tr-row">
-          <div class="tr-date">${fmtDate(t.date)}</div>
+      const FREQ_LABELS = { weekly:'Weekly', biweekly:'Bi-weekly', monthly:'Monthly', yearly:'Yearly' };
+
+      // Group by month for visual separation
+      let lastMonth = '';
+      futList.innerHTML = future.map(f => {
+        const monthKey   = f.occDate.slice(0, 7); // YYYY-MM
+        const monthLabel = monthKey !== lastMonth
+          ? (() => { lastMonth = monthKey; const [y,m] = monthKey.split('-'); return `<div class="tr-month-sep">${new Date(+y,+m-1).toLocaleString('default',{month:'long',year:'numeric'})}</div>`; })()
+          : '';
+        const projColor = f.projBalance >= 0 ? 'tr-pos' : 'tr-neg';
+        return `${monthLabel}
+        <div class="tr-future-row">
+          <div class="tr-date">${fmtDate(f.occDate)}</div>
           <div class="tr-info">
-            <div class="tr-desc">${h(t.desc)}</div>
-            <div class="tr-cat">${h(t.cat)}</div>
+            <div class="tr-desc">${h(f.desc)}</div>
+            <div class="tr-cat">${h(f.cat)} · <span class="tr-freq-tag">${FREQ_LABELS[f.freq]}</span></div>
           </div>
-          <div class="tr-delta ${t.type==='income'?'tr-pos':'tr-neg'}">
-            ${t.type==='income'?'+':'-'}$${t.amount.toFixed(2)}
+          <div class="tr-future-amt-col">
+            <div class="tr-delta ${f.type==='income'?'tr-pos':'tr-neg'}">
+              ${f.type==='income'?'+':'-'}$${f.amount.toFixed(2)}
+            </div>
+            <div class="tr-proj-bal ${projColor}">→ $${f.projBalance.toFixed(2)}</div>
           </div>
-          <div class="tr-run">$${t.running.toFixed(2)}</div>
-          <button class="bs-x tr-remove-btn"
-                  data-action="remove-txn" data-id="${t.id}" title="Delete">×</button>
-        </div>`).join('');
+          <button class="bs-x" data-action="remove-recurring" data-id="${f.id}" title="Stop this recurring payment">×</button>
+        </div>`;
+      }).join('');
     }
 
-    // ── User selection ─────────────────────────────────────────────────────────
-    document.getElementById('tr-user-sel').addEventListener('change', e => {
-      currentUser = e.target.value || null;
-      renderTracker();
+    // ── Open txn modal (new, duplicate) ───────────────────────────────────────
+    function openTxnModal({ type, desc='', amount='', cat='Food', title, btnLabel, date }) {
+      addingType = type;
+      document.getElementById('modal-txn-title').textContent    = title;
+      document.getElementById('txn-submit-btn').textContent     = btnLabel;
+      document.getElementById('txn-cat-field').style.display    = type === 'income' ? 'none' : '';
+      document.getElementById('txn-date').value                 = date || todayISO();
+      document.getElementById('txn-amount').value               = amount || '';
+      document.getElementById('txn-desc').value                 = desc;
+      if (type !== 'income') document.getElementById('txn-cat').value = cat;
+      document.getElementById('modal-txn').classList.remove('hidden');
+    }
+
+    // ── Buttons ────────────────────────────────────────────────────────────────
+    document.getElementById('btn-add-expense').addEventListener('click', () =>
+      openTxnModal({ type:'expense', title:'Add Expense', btnLabel:'Add Expense' }));
+
+    document.getElementById('btn-add-income').addEventListener('click', () =>
+      openTxnModal({ type:'income', title:'Add Income / Paycheck', btnLabel:'Add Income' }));
+
+    document.getElementById('btn-add-recurring').addEventListener('click', () => {
+      document.getElementById('recurring-form').reset();
+      document.getElementById('rec-start').value = todayISO();
+      document.getElementById('rec-cat-field').style.display = '';
+      document.getElementById('modal-recurring').classList.remove('hidden');
     });
 
-    // ── Add expense ────────────────────────────────────────────────────────────
-    document.getElementById('btn-add-expense').addEventListener('click', () => {
-      addingType = 'expense';
-      document.getElementById('modal-txn-title').textContent = 'Add Expense';
-      document.getElementById('txn-submit-btn').textContent  = 'Add Expense';
-      document.getElementById('txn-cat-field').style.display = '';
-      document.getElementById('txn-form').reset();
-      document.getElementById('txn-date').value = todayISO();
-      document.getElementById('modal-txn').classList.remove('hidden');
-    });
-
-    // ── Add income ─────────────────────────────────────────────────────────────
-    document.getElementById('btn-add-income').addEventListener('click', () => {
-      addingType = 'income';
-      document.getElementById('modal-txn-title').textContent = 'Add Income / Paycheck';
-      document.getElementById('txn-submit-btn').textContent  = 'Add Income';
-      document.getElementById('txn-cat-field').style.display = 'none';
-      document.getElementById('txn-form').reset();
-      document.getElementById('txn-date').value = todayISO();
-      document.getElementById('modal-txn').classList.remove('hidden');
+    // Recurring type toggle — hide category for income
+    document.getElementById('rec-type').addEventListener('change', e => {
+      document.getElementById('rec-cat-field').style.display =
+        e.target.value === 'income' ? 'none' : '';
     });
 
     // ── Submit transaction ─────────────────────────────────────────────────────
@@ -233,9 +417,7 @@
       const date   = document.getElementById('txn-date').value;
       const amount = parseFloat(document.getElementById('txn-amount').value);
       const desc   = document.getElementById('txn-desc').value.trim();
-      const cat    = addingType === 'income'
-        ? 'Income'
-        : document.getElementById('txn-cat').value;
+      const cat    = addingType === 'income' ? 'Income' : document.getElementById('txn-cat').value;
 
       state.transactions.push({
         id: Date.now().toString(),
@@ -246,15 +428,64 @@
       renderTracker();
     });
 
-    // ── Remove transaction (event delegation) ─────────────────────────────────
-    document.getElementById('tr-list').addEventListener('click', e => {
-      const btn = e.target.closest('[data-action="remove-txn"]');
-      if (!btn) return;
-      state.transactions = state.transactions.filter(t => t.id !== btn.dataset.id);
-      save(); renderTracker();
+    // ── Submit recurring ───────────────────────────────────────────────────────
+    document.getElementById('recurring-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const type  = document.getElementById('rec-type').value;
+      const cat   = type === 'income' ? 'Income' : document.getElementById('rec-cat').value;
+      state.recurring.push({
+        id:        Date.now().toString(),
+        user:      currentUser,
+        desc:      document.getElementById('rec-desc').value.trim(),
+        amount:    parseFloat(document.getElementById('rec-amount').value),
+        type,
+        cat,
+        freq:      document.getElementById('rec-freq').value,
+        startDate: document.getElementById('rec-start').value,
+      });
+      save();
+      document.getElementById('modal-recurring').classList.add('hidden');
+      renderFuture();
     });
 
-    // ── Modal close ────────────────────────────────────────────────────────────
+    // ── Event delegation (history list) ───────────────────────────────────────
+    document.getElementById('tr-list').addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+
+      if (btn.dataset.action === 'remove-txn') {
+        state.transactions = state.transactions.filter(t => t.id !== btn.dataset.id);
+        save(); renderTracker(); return;
+      }
+
+      if (btn.dataset.action === 'dupe-txn') {
+        const t = state.transactions.find(t => t.id === btn.dataset.id);
+        if (!t) return;
+        openTxnModal({
+          type:     t.type,
+          desc:     t.desc,
+          amount:   t.amount,
+          cat:      t.cat,
+          title:    'Duplicate Transaction',
+          btnLabel: 'Add Duplicate',
+          date:     todayISO(),  // always use today for the duplicate
+        });
+      }
+    });
+
+    // ── Event delegation (future list) ────────────────────────────────────────
+    document.getElementById('future-list').addEventListener('click', e => {
+      const btn = e.target.closest('[data-action="remove-recurring"]');
+      if (!btn) return;
+      state.recurring = state.recurring.filter(r => r.id !== btn.dataset.id);
+      save(); renderFuture();
+      // Update rules count
+      const rules = state.recurring.filter(r => r.user === currentUser);
+      document.getElementById('future-rules-count').textContent =
+        rules.length ? `${rules.length} active rule${rules.length > 1 ? 's' : ''}` : '';
+    });
+
+    // ── Modal close (global) ──────────────────────────────────────────────────
     document.addEventListener('click', e => {
       const closer = e.target.closest('[data-close]');
       if (closer) { document.getElementById(closer.dataset.close).classList.add('hidden'); return; }
@@ -263,6 +494,12 @@
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape')
         document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
+    });
+
+    // ── User select ────────────────────────────────────────────────────────────
+    document.getElementById('tr-user-sel').addEventListener('change', e => {
+      currentUser = e.target.value || null;
+      renderTracker();
     });
 
     // ── Init ───────────────────────────────────────────────────────────────────

@@ -724,7 +724,7 @@ ul { list-style: none; }
 }
 .tr-col-labels {
   display: grid;
-  grid-template-columns: 90px 1fr 100px 100px;
+  grid-template-columns: 90px 1fr 100px 100px 56px;
   gap: 0.5rem;
   font-family: var(--font-mono);
   font-size: 0.65rem;
@@ -738,7 +738,7 @@ ul { list-style: none; }
 /* ── Transaction row ── */
 .tr-row {
   display: grid;
-  grid-template-columns: 90px 1fr 100px 100px 28px;
+  grid-template-columns: 90px 1fr 100px 100px 56px;
   gap: 0.5rem;
   align-items: center;
   padding: 0.75rem 1.25rem;
@@ -779,8 +779,97 @@ ul { list-style: none; }
   color: var(--text-muted);
   text-align: right;
 }
-.tr-remove-btn { justify-self: center; }
+.tr-row-btns {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  justify-content: flex-end;
+}
 .tr-empty-start { padding: 3rem 1.5rem; }
+
+/* ── Recurring button ── */
+.tr-btn-recurring {
+  border-color: rgba(124,92,252,0.4);
+  color: var(--accent2);
+}
+.tr-btn-recurring:hover {
+  background: rgba(124,92,252,0.1);
+  border-color: var(--accent2);
+}
+
+/* ── Future payments panel ── */
+.tr-future-panel {
+  border-color: rgba(124,92,252,0.3);
+  box-shadow: 0 0 24px rgba(124,92,252,0.06);
+}
+.tr-future-header {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+}
+.tr-future-sub {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-left: 0.75rem;
+  letter-spacing: 0.05em;
+}
+.tr-future-rules-count {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--accent2);
+  background: rgba(124,92,252,0.1);
+  border: 1px solid rgba(124,92,252,0.25);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+/* ── Month separator ── */
+.tr-month-sep {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent2);
+  padding: 0.6rem 1.25rem 0.3rem;
+  border-top: 1px solid var(--border);
+}
+.tr-month-sep:first-child { border-top: none; }
+
+/* ── Future row ── */
+.tr-future-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto 28px;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.65rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  opacity: 0.82;
+  transition: opacity 0.15s, background 0.15s;
+}
+.tr-future-row:last-child { border-bottom: none; }
+.tr-future-row:hover { opacity: 1; background: var(--bg3); }
+
+.tr-future-amt-col {
+  text-align: right;
+}
+.tr-proj-bal {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  margin-top: 0.2rem;
+  opacity: 0.75;
+}
+
+/* ── Frequency tag ── */
+.tr-freq-tag {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  color: var(--accent2);
+  background: rgba(124,92,252,0.1);
+  border-radius: 3px;
+  padding: 0.05rem 0.3rem;
+}
 
 /* ══════════════════════════════════════════════════════════
    Analytics page
