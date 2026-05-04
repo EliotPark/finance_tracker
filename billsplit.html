@@ -30,7 +30,7 @@
         </div>
         <div class="bs-add-row">
           <input type="text" id="user-input" class="bs-input" placeholder="Add a person…" />
-          <button class="bs-btn bs-btn-accent" onclick="addUser()">Add</button>
+          <button class="bs-btn bs-btn-accent" id="add-user-btn">Add</button>
         </div>
         <div class="bs-user-list" id="user-list">
           <p class="bs-empty">No people added yet.</p>
@@ -42,7 +42,7 @@
         <div class="bs-panel-header">
           <h2 class="bs-panel-title">Add Expense</h2>
         </div>
-        <form class="bs-form" id="expense-form" onsubmit="addExpense(event)">
+        <form class="bs-form" id="expense-form">
 
           <div class="bs-field-row">
             <div class="bs-field">
@@ -85,10 +85,8 @@
           <div class="bs-field">
             <label class="bs-label">Split with</label>
             <div class="bs-toggle-row">
-              <button type="button" class="bs-toggle active" id="btn-all"
-                      onclick="setSplitMode('all')">Everyone</button>
-              <button type="button" class="bs-toggle" id="btn-select"
-                      onclick="setSplitMode('select')">Select people</button>
+              <button type="button" class="bs-toggle active" id="btn-all">Everyone</button>
+              <button type="button" class="bs-toggle" id="btn-select">Select people</button>
             </div>
             <div class="bs-checkbox-group hidden" id="split-panel"></div>
           </div>
@@ -127,14 +125,120 @@
     </section>
   </main>
 
+  <!-- ── Edit Person Modal ── -->
+  <div class="modal-overlay hidden" id="modal-user">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Person</h3>
+        <button class="bs-x modal-close" data-close="modal-user">×</button>
+      </div>
+      <div class="bs-field" style="margin-bottom:1.2rem">
+        <label class="bs-label">Name</label>
+        <input type="text" id="edit-user-input" class="bs-input" />
+      </div>
+      <div class="modal-actions">
+        <button class="bs-btn" data-close="modal-user">Cancel</button>
+        <button class="bs-btn bs-btn-accent" id="save-user-btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Edit Expense Modal ── -->
+  <div class="modal-overlay hidden" id="modal-expense">
+    <div class="modal-box modal-box-lg">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Expense</h3>
+        <button class="bs-x modal-close" data-close="modal-expense">×</button>
+      </div>
+      <form class="bs-form" id="edit-expense-form">
+
+        <div class="bs-field-row">
+          <div class="bs-field">
+            <label class="bs-label">Paid by</label>
+            <select id="edit-exp-payer" class="bs-input bs-select" required>
+              <option value="">— select —</option>
+            </select>
+          </div>
+          <div class="bs-field">
+            <label class="bs-label">Date</label>
+            <input type="date" id="edit-exp-date" class="bs-input" required />
+          </div>
+        </div>
+
+        <div class="bs-field">
+          <label class="bs-label">Description</label>
+          <input type="text" id="edit-exp-desc" class="bs-input" required />
+        </div>
+
+        <div class="bs-field-row">
+          <div class="bs-field">
+            <label class="bs-label">Amount ($)</label>
+            <input type="number" id="edit-exp-amount" class="bs-input" step="0.01" min="0.01" required />
+          </div>
+          <div class="bs-field">
+            <label class="bs-label">Category</label>
+            <select id="edit-exp-category" class="bs-input bs-select">
+              <option value="Food">Food</option>
+              <option value="Transport">Transport</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="Shopping">Shopping</option>
+              <option value="Bills">Bills</option>
+              <option value="Travel">Travel</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bs-field">
+          <label class="bs-label">Split with</label>
+          <div class="bs-checkbox-group" id="edit-split-panel"></div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="bs-btn" data-close="modal-expense">Cancel</button>
+          <button type="submit" class="bs-btn bs-btn-accent">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
-    // ── State (persisted to localStorage) ──────────────────────────────────────
+    // ── State ──────────────────────────────────────────────────────────────────
     let state = JSON.parse(localStorage.getItem('bs_state') || '{"users":[],"expenses":[]}');
     let splitMode = 'all';
+    let editingUser  = null; // original name being edited
+    let editingExpId = null; // id of expense being edited
 
-    function save() {
-      localStorage.setItem('bs_state', JSON.stringify(state));
+    function save() { localStorage.setItem('bs_state', JSON.stringify(state)); }
+
+    // ── Utilities ──────────────────────────────────────────────────────────────
+    function todayISO() { return new Date().toISOString().split('T')[0]; }
+    function fmtDate(iso) { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; }
+    function h(s) {
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
+
+    // ── Modal helpers ──────────────────────────────────────────────────────────
+    function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    document.addEventListener('click', e => {
+      // Close button or cancel button with data-close
+      const closer = e.target.closest('[data-close]');
+      if (closer) { closeModal(closer.dataset.close); return; }
+      // Click outside modal box closes it
+      if (e.target.classList.contains('modal-overlay')) {
+        closeModal(e.target.id);
+      }
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay:not(.hidden)')
+          .forEach(m => closeModal(m.id));
+      }
+    });
 
     // ── People ─────────────────────────────────────────────────────────────────
     function addUser() {
@@ -146,66 +250,153 @@
       save(); input.value = ''; render();
     }
 
-    document.getElementById('user-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); addUser(); }
-    });
-
     function removeUser(name) {
       state.users = state.users.filter(u => u !== name);
       save(); render();
     }
 
-    // ── Split mode ─────────────────────────────────────────────────────────────
+    function openEditUser(name) {
+      editingUser = name;
+      document.getElementById('edit-user-input').value = name;
+      openModal('modal-user');
+      document.getElementById('edit-user-input').focus();
+    }
+
+    document.getElementById('save-user-btn').addEventListener('click', () => {
+      const newName = document.getElementById('edit-user-input').value.trim();
+      if (!newName) return;
+      if (newName !== editingUser && state.users.includes(newName)) {
+        alert(`"${newName}" already exists.`); return;
+      }
+      // Update users list
+      state.users = state.users.map(u => u === editingUser ? newName : u);
+      // Update all expenses that reference this person
+      state.expenses = state.expenses.map(ex => ({
+        ...ex,
+        payer:     ex.payer === editingUser ? newName : ex.payer,
+        splitWith: ex.splitWith.map(p => p === editingUser ? newName : p),
+      }));
+      save(); closeModal('modal-user'); render();
+    });
+
+    document.getElementById('edit-user-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('save-user-btn').click(); }
+    });
+
+    // User-list event delegation (fixes remove + wires edit)
+    document.getElementById('user-list').addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const name = btn.dataset.name;
+      if (btn.dataset.action === 'remove-user') removeUser(name);
+      if (btn.dataset.action === 'edit-user')   openEditUser(name);
+    });
+
+    document.getElementById('add-user-btn').addEventListener('click', addUser);
+    document.getElementById('user-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addUser(); }
+    });
+
+    // ── Split mode (add form) ──────────────────────────────────────────────────
     function setSplitMode(mode) {
       splitMode = mode;
       document.getElementById('btn-all').classList.toggle('active', mode === 'all');
       document.getElementById('btn-select').classList.toggle('active', mode === 'select');
       document.getElementById('split-panel').classList.toggle('hidden', mode === 'all');
     }
+    document.getElementById('btn-all').addEventListener('click',    () => setSplitMode('all'));
+    document.getElementById('btn-select').addEventListener('click', () => setSplitMode('select'));
 
     // ── Add Expense ────────────────────────────────────────────────────────────
-    function addExpense(e) {
+    document.getElementById('expense-form').addEventListener('submit', e => {
       e.preventDefault();
       const payer  = document.getElementById('exp-payer').value;
       const date   = document.getElementById('exp-date').value;
       const desc   = document.getElementById('exp-desc').value.trim();
       const amount = parseFloat(document.getElementById('exp-amount').value);
       const cat    = document.getElementById('exp-category').value;
-
       if (!payer) { alert('Please select who paid.'); return; }
 
       let splitWith;
       if (splitMode === 'all') {
         splitWith = [...state.users];
       } else {
-        splitWith = Array.from(
-          document.querySelectorAll('.split-cb:checked')
-        ).map(cb => cb.value);
+        splitWith = Array.from(document.querySelectorAll('.split-cb:checked')).map(cb => cb.value);
         if (!splitWith.includes(payer)) splitWith.push(payer);
-        if (splitWith.length < 2) {
-          alert('Select at least one other person to split with.');
-          return;
-        }
+        if (splitWith.length < 2) { alert('Select at least one other person to split with.'); return; }
       }
-
-      if (splitWith.length === 0) { alert('Add at least one person first.'); return; }
+      if (!splitWith.length) { alert('Add at least one person first.'); return; }
 
       state.expenses.push({ id: Date.now().toString(), date, payer, desc, amount, cat, splitWith });
       save();
-      document.getElementById('expense-form').reset();
+      e.target.reset();
       document.getElementById('exp-date').value = todayISO();
       setSplitMode('all');
       render();
-    }
+    });
 
+    // ── Remove Expense ─────────────────────────────────────────────────────────
     function removeExpense(id) {
       state.expenses = state.expenses.filter(ex => ex.id !== id);
       save(); render();
     }
 
+    // ── Edit Expense ───────────────────────────────────────────────────────────
+    function openEditExpense(id) {
+      const ex = state.expenses.find(e => e.id === id);
+      if (!ex) return;
+      editingExpId = id;
+
+      // Populate payer dropdown
+      const payerSel = document.getElementById('edit-exp-payer');
+      payerSel.innerHTML = '<option value="">— select —</option>' +
+        state.users.map(u => `<option value="${h(u)}"${u===ex.payer?' selected':''}>${h(u)}</option>`).join('');
+
+      document.getElementById('edit-exp-date').value     = ex.date;
+      document.getElementById('edit-exp-desc').value     = ex.desc;
+      document.getElementById('edit-exp-amount').value   = ex.amount;
+      document.getElementById('edit-exp-category').value = ex.cat;
+
+      // Populate split checkboxes
+      document.getElementById('edit-split-panel').innerHTML = state.users.map(u => `
+        <label class="bs-cb-label">
+          <input type="checkbox" class="edit-split-cb" value="${h(u)}"
+                 ${ex.splitWith.includes(u) ? 'checked' : ''} />
+          ${h(u)}
+        </label>`).join('');
+
+      openModal('modal-expense');
+    }
+
+    document.getElementById('edit-expense-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const payer  = document.getElementById('edit-exp-payer').value;
+      const date   = document.getElementById('edit-exp-date').value;
+      const desc   = document.getElementById('edit-exp-desc').value.trim();
+      const amount = parseFloat(document.getElementById('edit-exp-amount').value);
+      const cat    = document.getElementById('edit-exp-category').value;
+
+      if (!payer) { alert('Please select who paid.'); return; }
+
+      let splitWith = Array.from(document.querySelectorAll('.edit-split-cb:checked')).map(cb => cb.value);
+      if (!splitWith.includes(payer)) splitWith.push(payer);
+      if (splitWith.length < 2) { alert('Select at least one other person to split with.'); return; }
+
+      state.expenses = state.expenses.map(ex =>
+        ex.id === editingExpId ? { ...ex, date, payer, desc, amount, cat, splitWith } : ex
+      );
+      save(); closeModal('modal-expense'); render();
+    });
+
+    // Expense-list event delegation
+    document.getElementById('expense-list').addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      if (btn.dataset.action === 'remove-expense') removeExpense(btn.dataset.id);
+      if (btn.dataset.action === 'edit-expense')   openEditExpense(btn.dataset.id);
+    });
+
     // ── Debt Simplification ────────────────────────────────────────────────────
-    // Greedy algorithm: repeatedly settle the largest debt against the largest credit.
-    // Minimises the number of transactions needed.
     function calcSettlements() {
       const bal = {};
       state.users.forEach(u => bal[u] = 0);
@@ -221,14 +412,12 @@
         });
       });
 
-      const creditors = [];
-      const debtors   = [];
+      const creditors = [], debtors = [];
       Object.entries(bal).forEach(([name, b]) => {
         const r = Math.round(b * 100) / 100;
         if (r >  0.005) creditors.push({ name, amount:  r });
         if (r < -0.005) debtors.push({   name, amount: -r });
       });
-
       creditors.sort((a, b) => b.amount - a.amount);
       debtors.sort((a, b)   => b.amount - a.amount);
 
@@ -268,9 +457,10 @@
       }
       el.innerHTML = state.users.map(u => `
         <div class="bs-chip">
-          <span class="bs-avatar">${u[0].toUpperCase()}</span>
-          <span>${escHtml(u)}</span>
-          <button class="bs-x" onclick="removeUser('${escAttr(u)}')" title="Remove">×</button>
+          <span class="bs-avatar">${h(u[0].toUpperCase())}</span>
+          <span class="bs-chip-name">${h(u)}</span>
+          <button class="bs-icon-btn" data-action="edit-user" data-name="${h(u)}" title="Edit">✏</button>
+          <button class="bs-x"        data-action="remove-user" data-name="${h(u)}" title="Remove">×</button>
         </div>`).join('');
     }
 
@@ -279,7 +469,7 @@
       const cur = sel.value;
       sel.innerHTML = '<option value="">— select —</option>' +
         state.users.map(u =>
-          `<option value="${escAttr(u)}"${u===cur?' selected':''}>${escHtml(u)}</option>`
+          `<option value="${h(u)}"${u===cur?' selected':''}>${h(u)}</option>`
         ).join('');
     }
 
@@ -287,8 +477,8 @@
       const panel = document.getElementById('split-panel');
       panel.innerHTML = state.users.map(u => `
         <label class="bs-cb-label">
-          <input type="checkbox" class="split-cb" value="${escAttr(u)}" checked />
-          ${escHtml(u)}
+          <input type="checkbox" class="split-cb" value="${h(u)}" checked />
+          ${h(u)}
         </label>`).join('');
     }
 
@@ -304,14 +494,15 @@
         <div class="bs-expense-row">
           <div class="bs-expense-icon">${CAT_ICONS[ex.cat] || '📦'}</div>
           <div class="bs-expense-info">
-            <div class="bs-expense-desc">${escHtml(ex.desc)}</div>
+            <div class="bs-expense-desc">${h(ex.desc)}</div>
             <div class="bs-expense-meta">
-              ${fmtDate(ex.date)}&nbsp;·&nbsp;${escHtml(ex.cat)}&nbsp;·&nbsp;paid by <strong>${escHtml(ex.payer)}</strong>&nbsp;·&nbsp;${ex.splitWith.length} people ($${per} ea)
+              ${fmtDate(ex.date)}&nbsp;·&nbsp;${h(ex.cat)}&nbsp;·&nbsp;paid by <strong>${h(ex.payer)}</strong>&nbsp;·&nbsp;${ex.splitWith.length} people ($${per} ea)
             </div>
           </div>
           <div class="bs-expense-right">
             <span class="bs-expense-amount">$${ex.amount.toFixed(2)}</span>
-            <button class="bs-x" onclick="removeExpense('${ex.id}')">×</button>
+            <button class="bs-icon-btn" data-action="edit-expense"   data-id="${ex.id}" title="Edit">✏</button>
+            <button class="bs-x"        data-action="remove-expense" data-id="${ex.id}" title="Remove">×</button>
           </div>
         </div>`;
       }).join('');
@@ -328,22 +519,12 @@
       }
       el.innerHTML = settlements.map(s => `
         <div class="bs-settle-row">
-          <span class="bs-settle-from">${escHtml(s.from)}</span>
+          <span class="bs-settle-from">${h(s.from)}</span>
           <span class="bs-settle-arrow">→ pays →</span>
-          <span class="bs-settle-to">${escHtml(s.to)}</span>
+          <span class="bs-settle-to">${h(s.to)}</span>
           <span class="bs-settle-amt">$${s.amount.toFixed(2)}</span>
         </div>`).join('');
     }
-
-    // ── Utilities ──────────────────────────────────────────────────────────────
-    function todayISO() { return new Date().toISOString().split('T')[0]; }
-    function fmtDate(iso) {
-      const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`;
-    }
-    function escHtml(s) {
-      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-    function escAttr(s) { return escHtml(s); }
 
     // ── Init ───────────────────────────────────────────────────────────────────
     document.getElementById('exp-date').value = todayISO();
