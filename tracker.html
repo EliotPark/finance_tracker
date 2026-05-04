@@ -13,15 +13,261 @@
     <a href="index.html" class="nav-brand">CS32</a>
     <ul class="nav-links">
       <li><a href="tracker.html" class="nav-link active">Tracker</a></li>
+      <li><a href="analytics.html" class="nav-link">Analytics</a></li>
       <li><a href="billsplit.html" class="nav-link">Bill Split</a></li>
     </ul>
   </nav>
 
-  <main class="empty-page">
-    <span class="empty-badge">Coming Soon</span>
-    <h1 class="empty-title">Tracker</h1>
-    <p class="empty-sub">This page is under construction.</p>
+  <main class="tr-page">
+
+    <!-- ── Account selector + balance ── -->
+    <div class="tr-header">
+      <div class="tr-account-row">
+        <label class="bs-label" for="tr-user-sel">Account</label>
+        <select id="tr-user-sel" class="bs-input bs-select tr-user-sel">
+          <option value="">— select user —</option>
+        </select>
+      </div>
+
+      <div class="tr-balance-card" id="tr-balance-card">
+        <div class="tr-balance-label">Current Balance</div>
+        <div class="tr-balance-val" id="tr-balance">—</div>
+        <div class="tr-balance-sub" id="tr-balance-sub"></div>
+      </div>
+    </div>
+
+    <!-- ── Action buttons (hidden until user selected) ── -->
+    <div class="tr-actions hidden" id="tr-actions">
+      <button class="bs-btn bs-btn-accent" id="btn-add-expense">+ Expense</button>
+      <button class="bs-btn tr-btn-income" id="btn-add-income">+ Income / Paycheck</button>
+    </div>
+
+    <!-- ── Transaction list ── -->
+    <div class="tr-panel">
+      <div class="tr-panel-header">
+        <span class="tr-panel-title">Transaction History</span>
+        <div class="tr-col-labels">
+          <span>Date</span>
+          <span>Description</span>
+          <span>Amount</span>
+          <span>Balance</span>
+        </div>
+      </div>
+      <div id="tr-list">
+        <p class="bs-empty tr-empty-start">Select a user above to view their transactions.</p>
+      </div>
+    </div>
+
   </main>
+
+  <!-- ── Add Transaction Modal ── -->
+  <div class="modal-overlay hidden" id="modal-txn">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-txn-title">Add Expense</h3>
+        <button class="bs-x modal-close" data-close="modal-txn">×</button>
+      </div>
+      <form class="bs-form" id="txn-form">
+        <div class="bs-field-row">
+          <div class="bs-field">
+            <label class="bs-label">Date</label>
+            <input type="date" id="txn-date" class="bs-input" required />
+          </div>
+          <div class="bs-field">
+            <label class="bs-label">Amount ($)</label>
+            <input type="number" id="txn-amount" class="bs-input" placeholder="0.00"
+                   step="0.01" min="0.01" required />
+          </div>
+        </div>
+        <div class="bs-field">
+          <label class="bs-label">Description</label>
+          <input type="text" id="txn-desc" class="bs-input"
+                 placeholder="e.g. Grocery run" required />
+        </div>
+        <div class="bs-field" id="txn-cat-field">
+          <label class="bs-label">Category</label>
+          <select id="txn-cat" class="bs-input bs-select">
+            <option value="Food">Food</option>
+            <option value="Transport">Transport</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Shopping">Shopping</option>
+            <option value="Bills">Bills</option>
+            <option value="Travel">Travel</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="bs-btn" data-close="modal-txn">Cancel</button>
+          <button type="submit" class="bs-btn bs-btn-accent" id="txn-submit-btn">Add Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let state = JSON.parse(localStorage.getItem('bs_state') || '{"users":[],"expenses":[],"transactions":[]}');
+    if (!state.transactions) state.transactions = [];
+
+    let currentUser = null;
+    let addingType  = 'expense';
+
+    function save() { localStorage.setItem('bs_state', JSON.stringify(state)); }
+    function todayISO() { return new Date().toISOString().split('T')[0]; }
+    function h(s) {
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+    function fmtDate(iso) {
+      const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`;
+    }
+
+    // ── Render user dropdown ───────────────────────────────────────────────────
+    function renderUserSel() {
+      const sel = document.getElementById('tr-user-sel');
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">— select user —</option>' +
+        state.users.map(u =>
+          `<option value="${h(u)}"${u===cur?' selected':''}>${h(u)}</option>`
+        ).join('');
+      if (cur && state.users.includes(cur)) sel.value = cur;
+    }
+
+    // ── Render full tracker view ───────────────────────────────────────────────
+    function renderTracker() {
+      renderUserSel();
+
+      const actionsEl = document.getElementById('tr-actions');
+      const balEl     = document.getElementById('tr-balance');
+      const balSubEl  = document.getElementById('tr-balance-sub');
+      const listEl    = document.getElementById('tr-list');
+
+      if (!currentUser) {
+        actionsEl.classList.add('hidden');
+        balEl.textContent    = '—';
+        balEl.className      = 'tr-balance-val';
+        balSubEl.textContent = '';
+        listEl.innerHTML     = '<p class="bs-empty tr-empty-start">Select a user above to view their transactions.</p>';
+        return;
+      }
+
+      actionsEl.classList.remove('hidden');
+
+      // All transactions for this user, sorted oldest→newest for running balance calc
+      const sorted = state.transactions
+        .filter(t => t.user === currentUser)
+        .sort((a,b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+
+      // Running balance per transaction
+      let running = 0;
+      const withBal = sorted.map(t => {
+        running += t.type === 'income' ? t.amount : -t.amount;
+        return { ...t, running: Math.round(running * 100) / 100 };
+      });
+
+      // Display newest first
+      const display = [...withBal].reverse();
+
+      // Balance summary
+      const income  = sorted.filter(t => t.type==='income').reduce((s,t)=>s+t.amount, 0);
+      const expense = sorted.filter(t => t.type==='expense').reduce((s,t)=>s+t.amount, 0);
+      const bal     = Math.round((income - expense) * 100) / 100;
+
+      balEl.textContent = (bal >= 0 ? '+' : '-') + '$' + Math.abs(bal).toFixed(2);
+      balEl.className   = 'tr-balance-val ' + (bal >= 0 ? 'tr-pos' : 'tr-neg');
+      balSubEl.textContent = `Income $${income.toFixed(2)}  ·  Spent $${expense.toFixed(2)}`;
+
+      if (!display.length) {
+        listEl.innerHTML = '<p class="bs-empty" style="padding:1.5rem">No transactions yet. Add an expense or income above.</p>';
+        return;
+      }
+
+      listEl.innerHTML = display.map(t => `
+        <div class="tr-row">
+          <div class="tr-date">${fmtDate(t.date)}</div>
+          <div class="tr-info">
+            <div class="tr-desc">${h(t.desc)}</div>
+            <div class="tr-cat">${h(t.cat)}</div>
+          </div>
+          <div class="tr-delta ${t.type==='income'?'tr-pos':'tr-neg'}">
+            ${t.type==='income'?'+':'-'}$${t.amount.toFixed(2)}
+          </div>
+          <div class="tr-run">$${t.running.toFixed(2)}</div>
+          <button class="bs-x tr-remove-btn"
+                  data-action="remove-txn" data-id="${t.id}" title="Delete">×</button>
+        </div>`).join('');
+    }
+
+    // ── User selection ─────────────────────────────────────────────────────────
+    document.getElementById('tr-user-sel').addEventListener('change', e => {
+      currentUser = e.target.value || null;
+      renderTracker();
+    });
+
+    // ── Add expense ────────────────────────────────────────────────────────────
+    document.getElementById('btn-add-expense').addEventListener('click', () => {
+      addingType = 'expense';
+      document.getElementById('modal-txn-title').textContent = 'Add Expense';
+      document.getElementById('txn-submit-btn').textContent  = 'Add Expense';
+      document.getElementById('txn-cat-field').style.display = '';
+      document.getElementById('txn-form').reset();
+      document.getElementById('txn-date').value = todayISO();
+      document.getElementById('modal-txn').classList.remove('hidden');
+    });
+
+    // ── Add income ─────────────────────────────────────────────────────────────
+    document.getElementById('btn-add-income').addEventListener('click', () => {
+      addingType = 'income';
+      document.getElementById('modal-txn-title').textContent = 'Add Income / Paycheck';
+      document.getElementById('txn-submit-btn').textContent  = 'Add Income';
+      document.getElementById('txn-cat-field').style.display = 'none';
+      document.getElementById('txn-form').reset();
+      document.getElementById('txn-date').value = todayISO();
+      document.getElementById('modal-txn').classList.remove('hidden');
+    });
+
+    // ── Submit transaction ─────────────────────────────────────────────────────
+    document.getElementById('txn-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const date   = document.getElementById('txn-date').value;
+      const amount = parseFloat(document.getElementById('txn-amount').value);
+      const desc   = document.getElementById('txn-desc').value.trim();
+      const cat    = addingType === 'income'
+        ? 'Income'
+        : document.getElementById('txn-cat').value;
+
+      state.transactions.push({
+        id: Date.now().toString(),
+        date, user: currentUser, desc, amount, cat, type: addingType,
+      });
+      save();
+      document.getElementById('modal-txn').classList.add('hidden');
+      renderTracker();
+    });
+
+    // ── Remove transaction (event delegation) ─────────────────────────────────
+    document.getElementById('tr-list').addEventListener('click', e => {
+      const btn = e.target.closest('[data-action="remove-txn"]');
+      if (!btn) return;
+      state.transactions = state.transactions.filter(t => t.id !== btn.dataset.id);
+      save(); renderTracker();
+    });
+
+    // ── Modal close ────────────────────────────────────────────────────────────
+    document.addEventListener('click', e => {
+      const closer = e.target.closest('[data-close]');
+      if (closer) { document.getElementById(closer.dataset.close).classList.add('hidden'); return; }
+      if (e.target.classList.contains('modal-overlay')) e.target.classList.add('hidden');
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape')
+        document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
+    });
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    renderTracker();
+  </script>
 
 </body>
 </html>

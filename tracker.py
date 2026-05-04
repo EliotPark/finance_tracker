@@ -1,166 +1,266 @@
-# tracker.py — Simple expense tracker that saves to a CSV file
-# Run this file: python3 tracker.py
+# tracker.py — Personal expense & income tracker (CLI)
+# Shares data with splitwise.py via the same JSON file.
+# Run: python3 tracker.py
 
-import csv       # for reading/writing CSV files
-import datetime  # for getting today's date
-import os        # for checking if a file exists
+import json
+import os
+import datetime
 
-
-# --- SETTINGS ---
-
-# name of the file where expenses are saved
-CSV_FILE = "expenses.csv"
-
-# list of categories the user can pick from
-CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Bills", "Other"]
+DATA_FILE  = "splitwise_data.json"
+CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Bills", "Travel", "Other"]
 
 
-# --- HELPER FUNCTIONS ---
+# ── Data layer ────────────────────────────────────────────────────────────────
 
-def get_amount():
-    """Ask the user for a dollar amount and make sure it's a valid number."""
+def load():
+    if not os.path.exists(DATA_FILE):
+        return {"users": [], "expenses": [], "transactions": []}
+    with open(DATA_FILE) as f:
+        data = json.load(f)
+    if "transactions" not in data:
+        data["transactions"] = []
+    return data
+
+
+def save(data):
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+# ── Balance helpers ───────────────────────────────────────────────────────────
+
+def compute_balance(data, user):
+    bal = 0.0
+    for t in data["transactions"]:
+        if t["user"] != user:
+            continue
+        if t["type"] == "income":
+            bal += t["amount"]
+        else:
+            bal -= t["amount"]
+    return round(bal, 2)
+
+
+def user_transactions(data, user):
+    return sorted(
+        [t for t in data["transactions"] if t["user"] == user],
+        key=lambda t: (t["date"], t["id"]),
+    )
+
+
+# ── Display helpers ───────────────────────────────────────────────────────────
+
+def print_balance(data, user):
+    bal = compute_balance(data, user)
+    sign = "+" if bal >= 0 else "-"
+    color = "\033[92m" if bal >= 0 else "\033[91m"  # green / red
+    reset = "\033[0m"
+    print(f"\n  Balance for {user}: {color}{sign}${abs(bal):.2f}{reset}\n")
+
+
+def print_statement(data, user):
+    txns = user_transactions(data, user)
+    if not txns:
+        print("  No transactions yet.")
+        return
+
+    print(f"\n  {'Date':<12} {'Type':<8} {'Category':<16} {'Amount':>10}  {'Balance':>10}  Description")
+    print("  " + "─" * 78)
+
+    running = 0.0
+    for t in txns:
+        if t["type"] == "income":
+            running += t["amount"]
+            delta  = f"+${t['amount']:.2f}"
+            color  = "\033[92m"
+        else:
+            running -= t["amount"]
+            delta  = f"-${t['amount']:.2f}"
+            color  = "\033[91m"
+        reset = "\033[0m"
+        bal_str = f"${running:.2f}"
+        print(f"  {t['date']:<12} {t['type']:<8} {t.get('cat','Income'):<16} "
+              f"{color}{delta:>10}{reset}  {bal_str:>10}  {t['desc']}")
+
+    # Summary line
+    income  = sum(t["amount"] for t in txns if t["type"] == "income")
+    expense = sum(t["amount"] for t in txns if t["type"] == "expense")
+    print("  " + "─" * 78)
+    print(f"  {'':12} {'':8} {'':16} {'Income:':>10}  \033[92m${income:.2f}\033[0m")
+    print(f"  {'':12} {'':8} {'':16} {'Spent:':>10}  \033[91m${expense:.2f}\033[0m")
+    print(f"  {'':12} {'':8} {'':16} {'Balance:':>10}  ${income-expense:.2f}\n")
+
+
+# ── Commands ──────────────────────────────────────────────────────────────────
+
+def cmd_view_statement(data):
+    if not data["users"]:
+        print("No users yet. Add a user first (from Bill Split menu or add one here).")
+        return
+    print("\nSelect user:")
+    for i, u in enumerate(data["users"], 1):
+        print(f"  {i}. {u}")
+    try:
+        idx = int(input("Enter number: ")) - 1
+        user = data["users"][idx]
+    except (ValueError, IndexError):
+        print("Invalid choice."); return
+
+    print_balance(data, user)
+    print_statement(data, user)
+
+
+def cmd_add_expense(data):
+    if not data["users"]:
+        print("No users yet."); return
+
+    print("\nSelect user:")
+    for i, u in enumerate(data["users"], 1):
+        print(f"  {i}. {u}")
+    try:
+        idx  = int(input("Enter number: ")) - 1
+        user = data["users"][idx]
+    except (ValueError, IndexError):
+        print("Invalid choice."); return
+
+    raw_date = input("Date (YYYY-MM-DD, Enter = today): ").strip()
+    date = raw_date if raw_date else datetime.date.today().isoformat()
+
+    desc = input("Description: ").strip() or "Expense"
+
     while True:
-        answer = input("How much did you spend? $")
         try:
-            # try to turn their answer into a number
-            amount = float(answer)
-            if amount <= 0:
-                print("Please enter a positive number.")
-            else:
-                return amount
+            amount = float(input("Amount ($): "))
+            if amount > 0:
+                break
         except ValueError:
-            # they typed something that isn't a number
-            print("That's not a valid number. Try again.")
+            pass
+        print("Enter a positive number.")
+
+    print("Category:")
+    for i, c in enumerate(CATEGORIES, 1):
+        print(f"  {i}. {c}")
+    while True:
+        try:
+            idx = int(input("Enter number: ")) - 1
+            if 0 <= idx < len(CATEGORIES):
+                cat = CATEGORIES[idx]
+                break
+        except ValueError:
+            pass
+        print("Invalid choice.")
+
+    data["transactions"].append({
+        "id":     str(int(datetime.datetime.now().timestamp() * 1000)),
+        "date":   date,
+        "user":   user,
+        "desc":   desc,
+        "amount": round(amount, 2),
+        "cat":    cat,
+        "type":   "expense",
+    })
+    save(data)
+    print(f'\nAdded expense: {desc} — -${amount:.2f} for {user}.')
+    print_balance(data, user)
 
 
-def get_category():
-    """Show a numbered list of categories and let the user pick one."""
-    print("Pick a category:")
-    # print each category with a number next to it
-    for i, cat in enumerate(CATEGORIES, start=1):
-        print(f"  {i}. {cat}")
+def cmd_add_income(data):
+    if not data["users"]:
+        print("No users yet."); return
+
+    print("\nSelect user:")
+    for i, u in enumerate(data["users"], 1):
+        print(f"  {i}. {u}")
+    try:
+        idx  = int(input("Enter number: ")) - 1
+        user = data["users"][idx]
+    except (ValueError, IndexError):
+        print("Invalid choice."); return
+
+    raw_date = input("Date (YYYY-MM-DD, Enter = today): ").strip()
+    date = raw_date if raw_date else datetime.date.today().isoformat()
+
+    desc = input("Description (e.g. Paycheck): ").strip() or "Income"
 
     while True:
-        answer = input("Enter the number: ")
         try:
-            choice = int(answer)
-            # make sure the number is in the valid range
-            if 1 <= choice <= len(CATEGORIES):
-                return CATEGORIES[choice - 1]
-            else:
-                print(f"Pick a number between 1 and {len(CATEGORIES)}.")
+            amount = float(input("Amount ($): "))
+            if amount > 0:
+                break
         except ValueError:
-            print("That's not a valid number. Try again.")
+            pass
+        print("Enter a positive number.")
+
+    data["transactions"].append({
+        "id":     str(int(datetime.datetime.now().timestamp() * 1000)),
+        "date":   date,
+        "user":   user,
+        "desc":   desc,
+        "amount": round(amount, 2),
+        "cat":    "Income",
+        "type":   "income",
+    })
+    save(data)
+    print(f'\nAdded income: {desc} — +${amount:.2f} for {user}.')
+    print_balance(data, user)
 
 
-def get_description():
-    """Ask for a short description of the expense."""
-    return input("Short description: ")
+def cmd_add_user(data):
+    name = input("Name: ").strip()
+    if not name:
+        print("Name cannot be empty."); return
+    if name in data["users"]:
+        print(f'"{name}" already exists.'); return
+    data["users"].append(name)
+    save(data)
+    print(f'Added "{name}".')
 
 
-def get_date():
-    """Ask for the date. If they press Enter, use today's date."""
-    today = datetime.date.today().strftime("%m/%d/%Y")
-    answer = input(f"Date (press Enter for today — {today}): ")
-
-    # if they just pressed Enter, use today
-    if answer.strip() == "":
-        return today
-    else:
-        return answer.strip()
-
-
-def get_split():
-    """Ask who the expense was split with. Returns a list of names."""
-    answer = input("Split with anyone? Enter names separated by commas (or press Enter to skip): ")
-
-    # if they pressed Enter, no one to split with
-    if answer.strip() == "":
-        return []
-
-    # split the names by comma and clean up extra spaces
-    names = [name.strip() for name in answer.split(",")]
-    return names
+def cmd_all_balances(data):
+    if not data["users"]:
+        print("No users yet."); return
+    print()
+    for user in data["users"]:
+        bal  = compute_balance(data, user)
+        sign = "+" if bal >= 0 else "-"
+        color = "\033[92m" if bal >= 0 else "\033[91m"
+        reset = "\033[0m"
+        print(f"  {user:<20} {color}{sign}${abs(bal):.2f}{reset}")
+    print()
 
 
-def calculate_per_person(amount, names):
-    """Calculate how much each person owes (including you)."""
-    # total people = you + everyone you listed
-    total_people = len(names) + 1
-    per_person = amount / total_people
-    return round(per_person, 2)
+# ── Main loop ─────────────────────────────────────────────────────────────────
 
+MENU = [
+    ("View statement (bank view)",  cmd_view_statement),
+    ("Add expense",                 cmd_add_expense),
+    ("Add income / paycheck",       cmd_add_income),
+    ("View all balances",           cmd_all_balances),
+    ("Add user",                    cmd_add_user),
+    ("Quit",                        None),
+]
 
-def print_summary(date, amount, category, description, names, per_person):
-    """Print a nice summary of the expense."""
-    print("\n--- Expense Logged ---")
-    print(f"  Date:        {date}")
-    print(f"  Amount:      ${amount:.2f}")
-    print(f"  Category:    {category}")
-    print(f"  Description: {description}")
-
-    # only show split info if there are other people
-    if names:
-        print(f"  Split with:  {', '.join(names)}")
-        print(f"  Per person:  ${per_person:.2f} each ({len(names) + 1} people)")
-    print("---------------------\n")
-
-
-def save_to_csv(date, amount, category, description, names, per_person):
-    """Save one row of expense data to the CSV file."""
-    # check if the file already exists
-    file_exists = os.path.exists(CSV_FILE)
-
-    # open the file in "append" mode so we add to the end (not overwrite)
-    with open(CSV_FILE, "a", newline="") as f:
-        writer = csv.writer(f)
-
-        # if the file is brand new, write the header row first
-        if not file_exists:
-            writer.writerow(["Date", "Amount", "Category", "Description", "Split With", "Per Person"])
-
-        # turn the list of names into a single string (e.g. "Alice; Bob")
-        split_with = "; ".join(names) if names else ""
-
-        # write the expense as one row
-        writer.writerow([date, amount, category, description, split_with, per_person])
-
-
-# --- MAIN PROGRAM ---
 
 def main():
-    """Main loop — ask for expenses until the user wants to stop."""
-    print("=== Expense Tracker ===\n")
-
+    print("=== Personal Tracker ===\n")
+    data = load()
     while True:
-        # ask all the questions
-        amount = get_amount()
-        category = get_category()
-        description = get_description()
-        date = get_date()
-        names = get_split()
-
-        # calculate split (if no names, per_person is just the full amount)
-        if names:
-            per_person = calculate_per_person(amount, names)
-        else:
-            per_person = amount
-
-        # show the user what was logged
-        print_summary(date, amount, category, description, names, per_person)
-
-        # save it to the CSV file
-        save_to_csv(date, amount, category, description, names, per_person)
-        print(f"Saved to {CSV_FILE}!")
-
-        # ask if they want to add another
-        again = input("Add another expense? (y/n): ").strip().lower()
-        if again != "y":
+        print()
+        for i, (label, _) in enumerate(MENU, 1):
+            print(f"  {i}. {label}")
+        choice = input("\nChoose: ").strip()
+        try:
+            idx = int(choice) - 1
+            label, fn = MENU[idx]
+        except (ValueError, IndexError):
+            print("Invalid choice.")
+            continue
+        if fn is None:
             print("Goodbye!")
             break
-        print()  # blank line before next expense
+        print(f"\n── {label} ──")
+        fn(data)
 
 
-# this runs the main function when you execute the file
 if __name__ == "__main__":
     main()
