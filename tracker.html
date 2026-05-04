@@ -187,8 +187,9 @@
     state.transactions = state.transactions || [];
     state.recurring    = state.recurring    || [];
 
-    let currentUser = null;
-    let addingType  = 'expense'; // used by txn modal
+    let currentUser  = null;
+    let addingType   = 'expense'; // used by txn modal
+    let editingTxnId = null;      // null = adding new, string = editing existing
 
     function save() { localStorage.setItem('bs_state', JSON.stringify(state)); }
     function todayISO() { return new Date().toISOString().split('T')[0]; }
@@ -320,7 +321,8 @@
             </div>
             <div class="tr-run">$${t.running.toFixed(2)}</div>
             <div class="tr-row-btns">
-              <button class="bs-icon-btn" data-action="dupe-txn" data-id="${t.id}" title="Duplicate">⧉</button>
+              <button class="bs-icon-btn" data-action="edit-txn"   data-id="${t.id}" title="Edit">✏</button>
+              <button class="bs-icon-btn" data-action="dupe-txn"   data-id="${t.id}" title="Duplicate">⧉</button>
               <button class="bs-x"        data-action="remove-txn" data-id="${t.id}" title="Delete">×</button>
             </div>
           </div>`).join('');
@@ -411,7 +413,7 @@
         e.target.value === 'income' ? 'none' : '';
     });
 
-    // ── Submit transaction ─────────────────────────────────────────────────────
+    // ── Submit transaction (handles add, edit, and duplicate) ─────────────────
     document.getElementById('txn-form').addEventListener('submit', e => {
       e.preventDefault();
       const date   = document.getElementById('txn-date').value;
@@ -419,10 +421,20 @@
       const desc   = document.getElementById('txn-desc').value.trim();
       const cat    = addingType === 'income' ? 'Income' : document.getElementById('txn-cat').value;
 
-      state.transactions.push({
-        id: Date.now().toString(),
-        date, user: currentUser, desc, amount, cat, type: addingType,
-      });
+      if (editingTxnId) {
+        // Update existing transaction in place, preserving id and user
+        state.transactions = state.transactions.map(t =>
+          t.id === editingTxnId
+            ? { ...t, date, desc, amount, cat, type: addingType }
+            : t
+        );
+        editingTxnId = null;
+      } else {
+        state.transactions.push({
+          id: Date.now().toString(),
+          date, user: currentUser, desc, amount, cat, type: addingType,
+        });
+      }
       save();
       document.getElementById('modal-txn').classList.add('hidden');
       renderTracker();
@@ -458,6 +470,22 @@
         save(); renderTracker(); return;
       }
 
+      if (btn.dataset.action === 'edit-txn') {
+        const t = state.transactions.find(t => t.id === btn.dataset.id);
+        if (!t) return;
+        editingTxnId = t.id;
+        openTxnModal({
+          type:     t.type,
+          desc:     t.desc,
+          amount:   t.amount,
+          cat:      t.cat,
+          title:    'Edit Transaction',
+          btnLabel: 'Save Changes',
+          date:     t.date,  // keep original date when editing
+        });
+        return;
+      }
+
       if (btn.dataset.action === 'dupe-txn') {
         const t = state.transactions.find(t => t.id === btn.dataset.id);
         if (!t) return;
@@ -468,7 +496,7 @@
           cat:      t.cat,
           title:    'Duplicate Transaction',
           btnLabel: 'Add Duplicate',
-          date:     todayISO(),  // always use today for the duplicate
+          date:     todayISO(),
         });
       }
     });
@@ -485,15 +513,29 @@
         rules.length ? `${rules.length} active rule${rules.length > 1 ? 's' : ''}` : '';
     });
 
-    // ── Modal close (global) ──────────────────────────────────────────────────
+    // ── Modal close (global) — always reset editingTxnId on txn modal close ───
+    function closeTxnModal() {
+      document.getElementById('modal-txn').classList.add('hidden');
+      editingTxnId = null;
+    }
     document.addEventListener('click', e => {
       const closer = e.target.closest('[data-close]');
-      if (closer) { document.getElementById(closer.dataset.close).classList.add('hidden'); return; }
-      if (e.target.classList.contains('modal-overlay')) e.target.classList.add('hidden');
+      if (closer) {
+        if (closer.dataset.close === 'modal-txn') { closeTxnModal(); return; }
+        document.getElementById(closer.dataset.close).classList.add('hidden'); return;
+      }
+      if (e.target.classList.contains('modal-overlay')) {
+        if (e.target.id === 'modal-txn') { closeTxnModal(); return; }
+        e.target.classList.add('hidden');
+      }
     });
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape')
-        document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => m.classList.add('hidden'));
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(m => {
+          if (m.id === 'modal-txn') closeTxnModal();
+          else m.classList.add('hidden');
+        });
+      }
     });
 
     // ── User select ────────────────────────────────────────────────────────────
