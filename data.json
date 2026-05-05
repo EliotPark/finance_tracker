@@ -17,6 +17,18 @@
         "Taylor",
         "Larry"
       ]
+    },
+    {
+      "id": "1778005235513",
+      "date": "2026-05-05",
+      "payer": "Taylor",
+      "desc": "uber to airport",
+      "amount": 70,
+      "cat": "Transport",
+      "splitWith": [
+        "Eliot",
+        "Taylor"
+      ]
     }
   ],
   "transactions": [
@@ -102,39 +114,6 @@
       "user": "Eliot"
     },
     {
-      "amount": 166.67,
-      "cat": "Food",
-      "date": "2026-05-05",
-      "desc": "Dinner at Nobu",
-      "id": "sw_1777949409262_Eliot",
-      "source": "splitwise",
-      "splitwiseId": "1777949409262",
-      "type": "expense",
-      "user": "Eliot"
-    },
-    {
-      "amount": 166.67,
-      "cat": "Food",
-      "date": "2026-05-05",
-      "desc": "Dinner at Nobu",
-      "id": "sw_1777949409262_Taylor",
-      "source": "splitwise",
-      "splitwiseId": "1777949409262",
-      "type": "expense",
-      "user": "Taylor"
-    },
-    {
-      "amount": 166.67,
-      "cat": "Food",
-      "date": "2026-05-05",
-      "desc": "Dinner at Nobu",
-      "id": "sw_1777949409262_Larry",
-      "source": "splitwise",
-      "splitwiseId": "1777949409262",
-      "type": "expense",
-      "user": "Larry"
-    },
-    {
       "amount": 500,
       "cat": "Income",
       "date": "2026-04-21",
@@ -142,6 +121,70 @@
       "id": "1777949452499",
       "type": "income",
       "user": "Larry"
+    },
+    {
+      "amount": 50,
+      "cat": "Food",
+      "date": "2026-05-05",
+      "desc": "food",
+      "id": "1778005172214",
+      "type": "expense",
+      "user": "Eliot"
+    },
+    {
+      "id": "sw_1777949409262_Eliot",
+      "date": "2026-05-05",
+      "user": "Eliot",
+      "desc": "Dinner at Nobu",
+      "amount": 166.67,
+      "cat": "Food",
+      "type": "expense",
+      "source": "splitwise",
+      "splitwiseId": "1777949409262"
+    },
+    {
+      "id": "sw_1777949409262_Taylor",
+      "date": "2026-05-05",
+      "user": "Taylor",
+      "desc": "Dinner at Nobu",
+      "amount": 166.67,
+      "cat": "Food",
+      "type": "expense",
+      "source": "splitwise",
+      "splitwiseId": "1777949409262"
+    },
+    {
+      "id": "sw_1777949409262_Larry",
+      "date": "2026-05-05",
+      "user": "Larry",
+      "desc": "Dinner at Nobu",
+      "amount": 166.67,
+      "cat": "Food",
+      "type": "expense",
+      "source": "splitwise",
+      "splitwiseId": "1777949409262"
+    },
+    {
+      "id": "sw_1778005235513_Eliot",
+      "date": "2026-05-05",
+      "user": "Eliot",
+      "desc": "uber to airport",
+      "amount": 35,
+      "cat": "Transport",
+      "type": "expense",
+      "source": "splitwise",
+      "splitwiseId": "1778005235513"
+    },
+    {
+      "id": "sw_1778005235513_Taylor",
+      "date": "2026-05-05",
+      "user": "Taylor",
+      "desc": "uber to airport",
+      "amount": 35,
+      "cat": "Transport",
+      "type": "expense",
+      "source": "splitwise",
+      "splitwiseId": "1778005235513"
     }
   ],
   "recurring": [
