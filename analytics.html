@@ -110,7 +110,8 @@
       const txns = state.transactions;
       if (!txns.length) return null;
 
-      // dates, sorted chronologically
+      // Collect every unique date across all users so every line shares the same x-axis points.
+      // Without this, users with different transaction dates would be on misaligned timelines.
       const allDates = [...new Set(txns.map(t => t.date))].sort();
       if (!allDates.length) return null;
 
@@ -121,7 +122,9 @@
 
         if (!userTxns.length) return null;
 
-        // Compute balance at each date (step forward, hold last value)
+        // Walk through transactions in order and accumulate the balance.
+        // On dates with no activity we just repeat the previous balance, which gives the flat
+        // step-chart look instead of dropping back to zero between transactions.
         let bal = 0, ti = 0;
         const data = allDates.map(date => {
           while (ti < userTxns.length && userTxns[ti].date <= date) {
@@ -350,6 +353,8 @@
     });
 
 
+    // This page is read-only, so we only load state once on startup.
+    // To see changes made in Tracker or Bill Split, the user hits the Refresh button.
     loadState().then(() => {
       renderUserSel();
       initLineChart();

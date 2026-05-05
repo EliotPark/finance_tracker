@@ -19,6 +19,8 @@ def save(data):
 def calc_settlements(data):
     bal = {u: 0.0 for u in data["users"]}
 
+    # Build a net balance for each person. Positive means someone is owed money,
+    # negative means they owe money. The payer is skipped because they already covered their share.
     for ex in data["expenses"]:
         n = len(ex["split_with"])
         if n == 0:
@@ -39,6 +41,8 @@ def calc_settlements(data):
         key=lambda x: -x["amount"]
     )
 
+    # Greedy matching: pair the biggest creditor with the biggest debtor each round.
+    # This minimizes the total number of payments needed to settle everyone up.
     settlements = []
     while creditors and debtors:
         cr, db = creditors[0], debtors[0]
@@ -131,6 +135,8 @@ def cmd_add_expense(data):
         required=payer
     )
 
+    # Note: this script uses "split_with" (snake_case) but the web frontend uses "splitWith" (camelCase).
+    # Expenses added here will not be recognized by billsplit.html and vice versa.
     expense = {
         "id": str(int(datetime.datetime.now().timestamp() * 1000)),
         "date": date,
@@ -194,6 +200,8 @@ MENU = [
 ]
 
 def main():
+    # Load the shared data.json once at startup, then pass it into each command.
+    # Every command that changes data calls save() itself before returning.
     print("=== Bill Split (Splitwise-style) ===\n")
     data = load()
     while True:

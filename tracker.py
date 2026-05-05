@@ -36,6 +36,7 @@ def compute_balance(data, user):
 
 
 def user_transactions(data, user):
+    # Sort by date first, then by id as a tiebreaker so two transactions on the same day always appear in the order they were added rather than random dict ordering.
     return sorted(
         [t for t in data["transactions"] if t["user"] == user],
         key=lambda t: (t["date"], t["id"]),
@@ -59,6 +60,7 @@ def print_statement(data, user):
     print(f"\n  {'Date':<12} {'Type':<8} {'Category':<16} {'Amount':>10}  {'Balance':>10}  Description")
     print("  " + "─" * 78)
 
+    # Walk oldest to newest so each row can show the running balance at that point in time, the same way a real bank statement works.
     running = 0.0
     for t in txns:
         if t["type"] == "income":
@@ -230,9 +232,8 @@ MENU = [
     ("Quit",  None),
 ]
 
-# main function
-
 def main():
+    # This is the original CLI prototype for the tracker. The web version (tracker.html) replaced it but both read and write the same data.json, so they stay in sync.
     print("=== Personal Tracker ===\n")
     data = load()
     while True:

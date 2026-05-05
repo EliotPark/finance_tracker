@@ -19,7 +19,8 @@ def load():
         return dict({k: list(v) for k, v in EMPTY_STATE.items()})
     with open(DATA_FILE) as f:
         data = json.load(f)
-    # Back-fill any keys added in later versions
+    # If we added a new field (like "recurring") after someone already has a data.json,
+    # this makes sure their file doesn't break — it just fills in the missing key as empty
     for key, default in EMPTY_STATE.items():
         if key not in data:
             data[key] = list(default)
@@ -39,6 +40,8 @@ def get_state():
 
 @app.route('/api/state', methods=['POST'])
 def post_state():
+    # The frontend always sends the entire state at once — we just overwrite the file.
+    # There's no partial update; whoever saves last wins.
     data = request.get_json(force=True)
     if not isinstance(data, dict):
         return jsonify({'error': 'expected JSON object'}), 400
@@ -54,6 +57,8 @@ def index():
 
 @app.route('/<path:path>')
 def static_files(path):
+    # Serves tracker.html, analytics.html, style.css, etc. straight from the project folder —
+    # no separate static directory needed
     return send_from_directory('.', path)
 
 
