@@ -8,9 +8,6 @@ Final Project for CS32
 5. Multiple user support so different people can have their own accounts and expense records
 6. Bill-splitting feature inspired by apps like Splitwise to divide shared expenses between users
 
-4/8/26 - Eliot
-- Added bare bones framework for website with a landing page and two subpages (one for billsplit and one for trackers)
-- New idea - Auto sort transactions into categories using huge hard coded lists of food spots, clothing stores, etc. If none match, give the user to select given a drop down menu.
 
 ## data.json structure
 
@@ -29,14 +26,16 @@ SETUP
 Requires Python 3.10+ and Flask. 
 Install with: pip install flask
 
-RUNNING
+
+# Running the program
+
 Put all project files in the same folder, nagivate to the root directory, and run: 
 python3 app.py
 
 Then open http://localhost:5000 in your browser (the link should also show up in your terminal)
 Changes save automatically to data.json.
 
-CREDITS
+# Credits
 
 We used several AI and online tools throughout this project.
 For the frontend design, we used Lovable.ai to generate the initial CSS stylesheet, which gave us the dark theme, color scheme, typography, and overall visual layout of the site. We then made manual adjustments to fit our specific pages and components.
