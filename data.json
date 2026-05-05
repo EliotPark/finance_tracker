@@ -1,0 +1,169 @@
+{
+  "users": [
+    "Eliot",
+    "Taylor",
+    "Larry"
+  ],
+  "expenses": [
+    {
+      "amount": 500,
+      "cat": "Food",
+      "date": "2026-05-05",
+      "desc": "Dinner at Nobu",
+      "id": "1777949409262",
+      "payer": "Eliot",
+      "splitWith": [
+        "Eliot",
+        "Taylor",
+        "Larry"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "amount": 50,
+      "cat": "Entertainment",
+      "date": "2026-05-05",
+      "desc": "kalshi",
+      "id": "1777948195016",
+      "type": "expense",
+      "user": "Eliot"
+    },
+    {
+      "amount": 3000,
+      "cat": "Income",
+      "date": "2026-04-01",
+      "desc": "delta",
+      "id": "1777948207546",
+      "type": "income",
+      "user": "Eliot"
+    },
+    {
+      "amount": 400,
+      "cat": "Food",
+      "date": "2026-04-23",
+      "desc": "Nobu",
+      "id": "1777948222801",
+      "type": "expense",
+      "user": "Eliot"
+    },
+    {
+      "amount": 50,
+      "cat": "Food",
+      "date": "2026-04-22",
+      "desc": "food",
+      "id": "1777948256431",
+      "type": "expense",
+      "user": "Eliot"
+    },
+    {
+      "amount": 150,
+      "cat": "Shopping",
+      "date": "2026-04-20",
+      "desc": "Allsaints",
+      "id": "1777948269964",
+      "type": "expense",
+      "user": "Eliot"
+    },
+    {
+      "amount": 200,
+      "cat": "Entertainment",
+      "date": "2026-04-17",
+      "desc": "200",
+      "id": "1777948282962",
+      "type": "expense",
+      "user": "Eliot"
+    },
+    {
+      "amount": 50,
+      "cat": "Entertainment",
+      "date": "2026-04-16",
+      "desc": "kalshi",
+      "id": "1777948383427",
+      "type": "expense",
+      "user": "Eliot"
+    },
+    {
+      "amount": 89,
+      "cat": "Travel",
+      "date": "2026-04-12",
+      "desc": "nyc ubers",
+      "id": "1777948430995",
+      "type": "expense",
+      "user": "Eliot"
+    },
+    {
+      "amount": 50,
+      "cat": "Bills",
+      "date": "2026-04-11",
+      "desc": "electricity",
+      "id": "1777949306785",
+      "type": "expense",
+      "user": "Eliot"
+    },
+    {
+      "amount": 166.67,
+      "cat": "Food",
+      "date": "2026-05-05",
+      "desc": "Dinner at Nobu",
+      "id": "sw_1777949409262_Eliot",
+      "source": "splitwise",
+      "splitwiseId": "1777949409262",
+      "type": "expense",
+      "user": "Eliot"
+    },
+    {
+      "amount": 166.67,
+      "cat": "Food",
+      "date": "2026-05-05",
+      "desc": "Dinner at Nobu",
+      "id": "sw_1777949409262_Taylor",
+      "source": "splitwise",
+      "splitwiseId": "1777949409262",
+      "type": "expense",
+      "user": "Taylor"
+    },
+    {
+      "amount": 166.67,
+      "cat": "Food",
+      "date": "2026-05-05",
+      "desc": "Dinner at Nobu",
+      "id": "sw_1777949409262_Larry",
+      "source": "splitwise",
+      "splitwiseId": "1777949409262",
+      "type": "expense",
+      "user": "Larry"
+    },
+    {
+      "amount": 500,
+      "cat": "Income",
+      "date": "2026-04-21",
+      "desc": "Harvard",
+      "id": "1777949452499",
+      "type": "income",
+      "user": "Larry"
+    }
+  ],
+  "recurring": [
+    {
+      "amount": 12,
+      "cat": "Entertainment",
+      "desc": "Netflix",
+      "freq": "monthly",
+      "id": "1777948400211",
+      "startDate": "2026-04-15",
+      "type": "expense",
+      "user": "Eliot"
+    },
+    {
+      "amount": 11,
+      "cat": "Entertainment",
+      "desc": "Spotify Premium",
+      "freq": "monthly",
+      "id": "1777949362833",
+      "startDate": "2026-04-29",
+      "type": "expense",
+      "user": "Eliot"
+    }
+  ]
+}

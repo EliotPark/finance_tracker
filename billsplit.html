@@ -19,7 +19,6 @@
   </nav>
 
   <main class="bs-page">
-
     <!-- ── Left column ── -->
     <section class="bs-col bs-col-left">
 
@@ -98,10 +97,10 @@
 
     </section>
 
-    <!-- ── Right column ── -->
+
     <section class="bs-col bs-col-right">
 
-      <!-- Settlements -->
+
       <div class="bs-panel bs-panel-glow">
         <div class="bs-panel-header">
           <h2 class="bs-panel-title">Settlements</h2>
@@ -112,7 +111,7 @@
         </div>
       </div>
 
-      <!-- Expense list -->
+
       <div class="bs-panel">
         <div class="bs-panel-header">
           <h2 class="bs-panel-title">Expenses</h2>
@@ -126,7 +125,7 @@
     </section>
   </main>
 
-  <!-- ── Edit Person Modal ── -->
+
   <div class="modal-overlay hidden" id="modal-user">
     <div class="modal-box">
       <div class="modal-header">
@@ -144,7 +143,7 @@
     </div>
   </div>
 
-  <!-- ── Edit Expense Modal ── -->
+
   <div class="modal-overlay hidden" id="modal-expense">
     <div class="modal-box modal-box-lg">
       <div class="modal-header">
@@ -204,15 +203,54 @@
   </div>
 
   <script>
-    // ── State ──────────────────────────────────────────────────────────────────
-    let state = JSON.parse(localStorage.getItem('bs_state') || '{"users":[],"expenses":[]}');
+
+// STATE HANLING (SUPER IMPORTANT!!)
+
+    let state = { users: [], expenses: [], transactions: [], recurring: [] };
     let splitMode = 'all';
-    let editingUser  = null; // original name being edited
-    let editingExpId = null; // id of expense being edited
+    let editingUser  = null;
+    let editingExpId = null;
 
-    function save() { localStorage.setItem('bs_state', JSON.stringify(state)); }
 
-    // ── Utilities ──────────────────────────────────────────────────────────────
+    function syncSplitwiseTransactions() {
+      state.transactions = (state.transactions || []).filter(t => t.source !== 'splitwise');
+      state.expenses.forEach(ex => {
+        const n = ex.splitWith.length;
+        if (!n) return;
+        const share = Math.round((ex.amount / n) * 100) / 100;
+        ex.splitWith.forEach(person => {
+          state.transactions.push({
+            id: 'sw_' + ex.id + '_' + person,
+            date: ex.date,
+            user: person,
+            desc: ex.desc,
+            amount: share,
+            cat: ex.cat,
+            type: 'expense',
+            source: 'splitwise',
+            splitwiseId: ex.id,
+          });
+        });
+      });
+    }
+
+    function save() {
+      syncSplitwiseTransactions();
+      fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state),
+      }).catch(console.error);
+    }
+
+    async function loadState() {
+      const data = await fetch('/api/state').then(r => r.json());
+      state.users = data.users || [];
+      state.expenses = data.expenses || [];
+      state.transactions = data.transactions || [];
+      state.recurring = data.recurring || [];
+    }
+
     function todayISO() { return new Date().toISOString().split('T')[0]; }
     function fmtDate(iso) { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; }
     function h(s) {
@@ -222,7 +260,7 @@
     }
 
     // ── Modal helpers ──────────────────────────────────────────────────────────
-    function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
     function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
     document.addEventListener('click', e => {
@@ -241,7 +279,7 @@
       }
     });
 
-    // ── People ─────────────────────────────────────────────────────────────────
+//people adding and editing/removing
     function addUser() {
       const input = document.getElementById('user-input');
       const name  = input.value.trim();
@@ -274,7 +312,7 @@
       // Update all expenses that reference this person
       state.expenses = state.expenses.map(ex => ({
         ...ex,
-        payer:     ex.payer === editingUser ? newName : ex.payer,
+        payer: ex.payer === editingUser ? newName : ex.payer,
         splitWith: ex.splitWith.map(p => p === editingUser ? newName : p),
       }));
       save(); closeModal('modal-user'); render();
@@ -290,7 +328,7 @@
       if (!btn) return;
       const name = btn.dataset.name;
       if (btn.dataset.action === 'remove-user') removeUser(name);
-      if (btn.dataset.action === 'edit-user')   openEditUser(name);
+      if (btn.dataset.action === 'edit-user') openEditUser(name);
     });
 
     document.getElementById('add-user-btn').addEventListener('click', addUser);
@@ -298,17 +336,17 @@
       if (e.key === 'Enter') { e.preventDefault(); addUser(); }
     });
 
-    // ── Split mode (add form) ──────────────────────────────────────────────────
+    // ── Split mode (add form) 
     function setSplitMode(mode) {
       splitMode = mode;
       document.getElementById('btn-all').classList.toggle('active', mode === 'all');
       document.getElementById('btn-select').classList.toggle('active', mode === 'select');
       document.getElementById('split-panel').classList.toggle('hidden', mode === 'all');
     }
-    document.getElementById('btn-all').addEventListener('click',    () => setSplitMode('all'));
+    document.getElementById('btn-all').addEventListener('click', () => setSplitMode('all'));
     document.getElementById('btn-select').addEventListener('click', () => setSplitMode('select'));
 
-    // ── Add Expense ────────────────────────────────────────────────────────────
+    // ── Add Expense 
     document.getElementById('expense-form').addEventListener('submit', e => {
       e.preventDefault();
       const payer  = document.getElementById('exp-payer').value;
@@ -316,7 +354,7 @@
       const desc   = document.getElementById('exp-desc').value.trim();
       const amount = parseFloat(document.getElementById('exp-amount').value);
       const cat    = document.getElementById('exp-category').value;
-      if (!payer) { alert('Please select who paid.'); return; }
+      if (!payer) { alert('Please select who paid.'); return;}
 
       let splitWith;
       if (splitMode === 'all') {
@@ -336,13 +374,13 @@
       render();
     });
 
-    // ── Remove Expense ─────────────────────────────────────────────────────────
+    // ── Remove Expense 
     function removeExpense(id) {
       state.expenses = state.expenses.filter(ex => ex.id !== id);
       save(); render();
     }
 
-    // ── Edit Expense ───────────────────────────────────────────────────────────
+    // ── Edit Expense 
     function openEditExpense(id) {
       const ex = state.expenses.find(e => e.id === id);
       if (!ex) return;
@@ -353,9 +391,9 @@
       payerSel.innerHTML = '<option value="">— select —</option>' +
         state.users.map(u => `<option value="${h(u)}"${u===ex.payer?' selected':''}>${h(u)}</option>`).join('');
 
-      document.getElementById('edit-exp-date').value     = ex.date;
-      document.getElementById('edit-exp-desc').value     = ex.desc;
-      document.getElementById('edit-exp-amount').value   = ex.amount;
+      document.getElementById('edit-exp-date').value = ex.date;
+      document.getElementById('edit-exp-desc').value = ex.desc;
+      document.getElementById('edit-exp-amount').value = ex.amount;
       document.getElementById('edit-exp-category').value = ex.cat;
 
       // Populate split checkboxes
@@ -372,10 +410,10 @@
     document.getElementById('edit-expense-form').addEventListener('submit', e => {
       e.preventDefault();
       const payer  = document.getElementById('edit-exp-payer').value;
-      const date   = document.getElementById('edit-exp-date').value;
-      const desc   = document.getElementById('edit-exp-desc').value.trim();
+      const date = document.getElementById('edit-exp-date').value;
+      const desc = document.getElementById('edit-exp-desc').value.trim();
       const amount = parseFloat(document.getElementById('edit-exp-amount').value);
-      const cat    = document.getElementById('edit-exp-category').value;
+      const cat = document.getElementById('edit-exp-category').value;
 
       if (!payer) { alert('Please select who paid.'); return; }
 
@@ -394,10 +432,10 @@
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
       if (btn.dataset.action === 'remove-expense') removeExpense(btn.dataset.id);
-      if (btn.dataset.action === 'edit-expense')   openEditExpense(btn.dataset.id);
+      if (btn.dataset.action === 'edit-expense') openEditExpense(btn.dataset.id);
     });
 
-    // ── Debt Simplification ────────────────────────────────────────────────────
+// debt calculation based on our prototype structure
     function calcSettlements() {
       const bal = {};
       state.users.forEach(u => bal[u] = 0);
@@ -409,18 +447,18 @@
         ex.splitWith.forEach(person => {
           if (person === ex.payer) return;
           bal[ex.payer] = (bal[ex.payer] || 0) + share;
-          bal[person]   = (bal[person]   || 0) - share;
+          bal[person] = (bal[person] || 0) - share;
         });
       });
 
       const creditors = [], debtors = [];
       Object.entries(bal).forEach(([name, b]) => {
         const r = Math.round(b * 100) / 100;
-        if (r >  0.005) creditors.push({ name, amount:  r });
-        if (r < -0.005) debtors.push({   name, amount: -r });
+        if (r >  0.005) creditors.push({ name, amount: r });
+        if (r < -0.005) debtors.push({ name, amount: -r });
       });
       creditors.sort((a, b) => b.amount - a.amount);
-      debtors.sort((a, b)   => b.amount - a.amount);
+      debtors.sort((a, b) => b.amount - a.amount);
 
       const out = [];
       while (creditors.length && debtors.length) {
@@ -435,7 +473,9 @@
       return out;
     }
 
-    // ── Render ─────────────────────────────────────────────────────────────────
+
+// actual rendering of icons and panes
+
     const CAT_ICONS = {
       Food:'🍔', Transport:'🚗', Entertainment:'🎬',
       Shopping:'🛍️', Bills:'⚡', Travel:'✈️', Other:'📦'
@@ -447,7 +487,7 @@
       renderSplitPanel();
       renderExpenses();
       renderSettlements();
-      document.getElementById('user-count').textContent    = state.users.length;
+      document.getElementById('user-count').textContent = state.users.length;
       document.getElementById('expense-count').textContent = state.expenses.length;
     }
 
@@ -461,7 +501,7 @@
           <span class="bs-avatar">${h(u[0].toUpperCase())}</span>
           <span class="bs-chip-name">${h(u)}</span>
           <button class="bs-icon-btn" data-action="edit-user" data-name="${h(u)}" title="Edit">✏</button>
-          <button class="bs-x"        data-action="remove-user" data-name="${h(u)}" title="Remove">×</button>
+          <button class="bs-x" data-action="remove-user" data-name="${h(u)}" title="Remove">×</button>
         </div>`).join('');
     }
 
@@ -514,8 +554,7 @@
       const settlements = calcSettlements();
       if (!settlements.length) {
         el.innerHTML = '<p class="bs-empty">' +
-          (state.expenses.length ? '🎉 All settled up!' : 'Add people and expenses to see settlements.') +
-          '</p>';
+          (state.expenses.length ? '🎉 All settled up!' : 'Add people and expenses to see settlements.') + '</p>';
         return;
       }
       el.innerHTML = settlements.map(s => `
@@ -527,9 +566,9 @@
         </div>`).join('');
     }
 
-    // ── Init ───────────────────────────────────────────────────────────────────
+
     document.getElementById('exp-date').value = todayISO();
-    render();
+    loadState().then(() => render());
   </script>
 
 </body>

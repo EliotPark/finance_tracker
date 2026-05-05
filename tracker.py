@@ -1,16 +1,12 @@
-# tracker.py — Personal expense & income tracker (CLI)
-# Shares data with splitwise.py via the same JSON file.
-# Run: python3 tracker.py
 
 import json
 import os
 import datetime
 
-DATA_FILE  = "splitwise_data.json"
+DATA_FILE  = "data.json"
 CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Bills", "Travel", "Other"]
 
 
-# ── Data layer ────────────────────────────────────────────────────────────────
 
 def load():
     if not os.path.exists(DATA_FILE):
@@ -26,8 +22,6 @@ def save(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-
-# ── Balance helpers ───────────────────────────────────────────────────────────
 
 def compute_balance(data, user):
     bal = 0.0
@@ -47,8 +41,6 @@ def user_transactions(data, user):
         key=lambda t: (t["date"], t["id"]),
     )
 
-
-# ── Display helpers ───────────────────────────────────────────────────────────
 
 def print_balance(data, user):
     bal = compute_balance(data, user)
@@ -91,7 +83,7 @@ def print_statement(data, user):
     print(f"  {'':12} {'':8} {'':16} {'Balance:':>10}  ${income-expense:.2f}\n")
 
 
-# ── Commands ──────────────────────────────────────────────────────────────────
+
 
 def cmd_view_statement(data):
     if not data["users"]:
@@ -229,17 +221,16 @@ def cmd_all_balances(data):
     print()
 
 
-# ── Main loop ─────────────────────────────────────────────────────────────────
-
 MENU = [
     ("View statement (bank view)",  cmd_view_statement),
-    ("Add expense",                 cmd_add_expense),
-    ("Add income / paycheck",       cmd_add_income),
-    ("View all balances",           cmd_all_balances),
-    ("Add user",                    cmd_add_user),
-    ("Quit",                        None),
+    ("Add expense",  cmd_add_expense),
+    ("Add income / paycheck", cmd_add_income),
+    ("View all balances", cmd_all_balances),
+    ("Add user",  cmd_add_user),
+    ("Quit",  None),
 ]
 
+# main function
 
 def main():
     print("=== Personal Tracker ===\n")

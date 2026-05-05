@@ -52,7 +52,6 @@
           </select>
         </div>
       </div>
-
       <div class="an-pie-layout">
         <div class="an-chart-wrap an-chart-pie" id="pie-wrap">
           <canvas id="chart-pie"></canvas>
@@ -65,26 +64,24 @@
         </div>
       </div>
     </section>
-
   </main>
 
   <script>
-    // ── Shared data ────────────────────────────────────────────────────────────
-    let state = JSON.parse(localStorage.getItem('bs_state') || '{"users":[],"expenses":[],"transactions":[]}');
-    if (!state.transactions) state.transactions = [];
+    // grab data
+    let state = { users: [], expenses: [], transactions: [], recurring: [] };
 
     const USER_COLORS = [
       '#4f8ef7','#7c5cfc','#5dde8a','#f7b24f',
       '#f56565','#4ff7d8','#f74fa8','#c8f74f',
     ];
     const CAT_COLORS = {
-      Food:          '#4f8ef7',
-      Transport:     '#7c5cfc',
+      Food: '#4f8ef7',
+      Transport: '#7c5cfc',
       Entertainment: '#5dde8a',
-      Shopping:      '#f7b24f',
-      Bills:         '#f56565',
-      Travel:        '#4ff7d8',
-      Other:         '#9aa0b8',
+      Shopping: '#f7b24f',
+      Bills: '#f56565',
+      Travel: '#4ff7d8',
+      Other: '#9aa0b8',
     };
 
     function h(s) {
@@ -99,21 +96,21 @@
       const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`;
     }
 
-    // ── Chart.js global defaults (dark theme) ─────────────────────────────────
-    Chart.defaults.color          = '#7a7f94';
-    Chart.defaults.borderColor    = '#252a38';
-    Chart.defaults.font.family    = "'JetBrains Mono', monospace";
-    Chart.defaults.font.size      = 11;
+    // ── Chart.js global defaults (dark theme) 
+    Chart.defaults.color = '#7a7f94';
+    Chart.defaults.borderColor = '#252a38';
+    Chart.defaults.font.family = "'JetBrains Mono', monospace";
+    Chart.defaults.font.size = 11;
 
     let lineChart = null;
     let pieChart  = null;
 
-    // ── Build line chart data ──────────────────────────────────────────────────
+    // ── Build line chart data 
     function buildLineData() {
       const txns = state.transactions;
       if (!txns.length) return null;
 
-      // Union of all dates, sorted chronologically
+      // dates, sorted chronologically
       const allDates = [...new Set(txns.map(t => t.date))].sort();
       if (!allDates.length) return null;
 
@@ -153,7 +150,6 @@
       return { labels: allDates, datasets };
     }
 
-    // ── Init / refresh line chart ──────────────────────────────────────────────
     function initLineChart() {
       const data = buildLineData();
       const emptyEl = document.getElementById('line-empty');
@@ -213,7 +209,7 @@
       });
     }
 
-    // ── Build pie chart data ───────────────────────────────────────────────────
+    // ── Build pie chart data 
     function buildPieData(user) {
       const expenses = state.transactions.filter(t => t.user === user && t.type === 'expense');
       if (!expenses.length) return null;
@@ -225,22 +221,24 @@
       return {
         labels,
         datasets: [{
-          data:            labels.map(c => Math.round(totals[c] * 100) / 100),
+          data: labels.map(c => Math.round(totals[c] * 100) / 100),
           backgroundColor: labels.map(c => CAT_COLORS[c] || '#9aa0b8'),
-          borderColor:     '#0d0f14',
-          borderWidth:     2,
-          hoverOffset:     8,
+          borderColor: '#0d0f14',
+          borderWidth: 2,
+          hoverOffset: 8,
         }],
       };
     }
 
-    // ── Init pie chart ─────────────────────────────────────────────────────────
+    // ── Init pie chart 
     function initPieChart(user) {
-      const data    = user ? buildPieData(user) : null;
+      const data = user ? buildPieData(user) : null;
       const emptyEl = document.getElementById('pie-empty');
-      const canvas  = document.getElementById('chart-pie');
+      const canvas = document.getElementById('chart-pie');
 
-      if (pieChart) { pieChart.destroy(); pieChart = null; }
+      if (pieChart) { 
+        pieChart.destroy(); pieChart = null; 
+      }
 
       if (!data) {
         emptyEl.style.display = '';
@@ -282,7 +280,7 @@
       renderStats(user, data);
     }
 
-    // ── Stats panel ───────────────────────────────────────────────────────────
+    // ── Stats panel 
     function renderStats(user, pieData) {
       const el = document.getElementById('an-stats');
       if (!user) {
@@ -320,7 +318,7 @@
       `;
     }
 
-    // ── User dropdown ──────────────────────────────────────────────────────────
+    // ── User dropdown 
     function renderUserSel() {
       const sel = document.getElementById('pie-user-sel');
       const cur = sel.value;
@@ -334,19 +332,28 @@
       initPieChart(e.target.value || null);
     });
 
-    //Refresh button!
-    document.getElementById('refresh-btn').addEventListener('click', () => {
-      state = JSON.parse(localStorage.getItem('bs_state') || '{"users":[],"expenses":[],"transactions":[]}');
-      if (!state.transactions) state.transactions = [];
+    async function loadState() {
+      const data = await fetch('/api/state').then(r => r.json());
+      state.users        = data.users        || [];
+      state.expenses     = data.expenses     || [];
+      state.transactions = data.transactions || [];
+      state.recurring    = data.recurring    || [];
+    }
+
+    // ── Refresh button 
+    document.getElementById('refresh-btn').addEventListener('click', async () => {
+      await loadState();
       renderUserSel();
       initLineChart();
       const pieUser = document.getElementById('pie-user-sel').value;
       initPieChart(pieUser || null);
     });
 
-    // ── Init ──
-    renderUserSel();
-    initLineChart();
+
+    loadState().then(() => {
+      renderUserSel();
+      initLineChart();
+    });
   </script>
 
 </body>

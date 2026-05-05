@@ -1,16 +1,10 @@
-# splitwise.py — Bill-splitting with optimized debt settlement
-# Run: python3 splitwise.py
-# Data stored in splitwise_data.json
-
 import json
 import os
 import datetime
 
-DATA_FILE  = "splitwise_data.json"
+DATA_FILE  = "data.json"
 CATEGORIES = ["Food", "Transport", "Entertainment", "Shopping", "Bills", "Travel", "Other"]
 
-
-# ── Data layer ────────────────────────────────────────────────────────────────
 
 def load():
     if not os.path.exists(DATA_FILE):
@@ -18,19 +12,11 @@ def load():
     with open(DATA_FILE) as f:
         return json.load(f)
 
-
 def save(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
-
-# ── Debt simplification ───────────────────────────────────────────────────────
-
 def calc_settlements(data):
-    """
-    Greedy algorithm that minimises the number of transactions needed to
-    settle all debts.  Each expense splits its cost equally among splitWith.
-    """
     bal = {u: 0.0 for u in data["users"]}
 
     for ex in data["expenses"]:
@@ -68,9 +54,6 @@ def calc_settlements(data):
 
     return settlements
 
-
-# ── CLI helpers ───────────────────────────────────────────────────────────────
-
 def pick(prompt, options):
     for i, o in enumerate(options, 1):
         print(f"  {i}. {o}")
@@ -83,7 +66,6 @@ def pick(prompt, options):
         except ValueError:
             pass
         print(f"Enter a number between 1 and {len(options)}.")
-
 
 def pick_people(prompt, users, required=None):
     """Let the user select a subset of people. required is always included."""
@@ -106,9 +88,6 @@ def pick_people(prompt, users, required=None):
         chosen.append(required)
     return chosen if chosen else list(users)
 
-
-# ── Commands ──────────────────────────────────────────────────────────────────
-
 def cmd_add_user(data):
     name = input("Name: ").strip()
     if not name:
@@ -120,7 +99,6 @@ def cmd_add_user(data):
     data["users"].append(name)
     save(data)
     print(f'Added "{name}".')
-
 
 def cmd_add_expense(data):
     if len(data["users"]) < 2:
@@ -154,12 +132,12 @@ def cmd_add_expense(data):
     )
 
     expense = {
-        "id":         str(int(datetime.datetime.now().timestamp() * 1000)),
-        "date":       date,
-        "payer":      payer,
-        "desc":       desc,
-        "amount":     round(amount, 2),
-        "cat":        cat,
+        "id": str(int(datetime.datetime.now().timestamp() * 1000)),
+        "date": date,
+        "payer": payer,
+        "desc": desc,
+        "amount": round(amount, 2),
+        "cat": cat,
         "split_with": split_with,
     }
     data["expenses"].append(expense)
@@ -189,13 +167,11 @@ def cmd_show_settlements(data):
     for s in settlements:
         print(f"  {s['from']} → pays → {s['to']}   ${s['amount']:.2f}")
 
-
 def cmd_show_users(data):
     if not data["users"]:
         print("No people in the group.")
     else:
         print("People: " + ", ".join(data["users"]))
-
 
 def cmd_clear(data):
     confirm = input("Clear ALL data? This cannot be undone. (yes/no): ").strip().lower()
@@ -207,19 +183,15 @@ def cmd_clear(data):
     else:
         print("Cancelled.")
 
-
-# ── Main loop ─────────────────────────────────────────────────────────────────
-
 MENU = [
-    ("Add person",         cmd_add_user),
-    ("Add expense",        cmd_add_expense),
-    ("Show expenses",      cmd_show_expenses),
-    ("Show settlements",   cmd_show_settlements),
-    ("Show people",        cmd_show_users),
-    ("Clear all data",     cmd_clear),
-    ("Quit",               None),
+    ("Add person", cmd_add_user),
+    ("Add expense", cmd_add_expense),
+    ("Show expenses", cmd_show_expenses),
+    ("Show settlements", cmd_show_settlements),
+    ("Show people", cmd_show_users),
+    ("Clear all data", cmd_clear),
+    ("Quit", None),
 ]
-
 
 def main():
     print("=== Bill Split (Splitwise-style) ===\n")
@@ -240,7 +212,6 @@ def main():
             break
         print(f"\n── {label} ──")
         fn(data)
-
 
 if __name__ == "__main__":
     main()
